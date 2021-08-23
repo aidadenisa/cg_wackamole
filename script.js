@@ -9,23 +9,42 @@ var projectionMatrix,
   worldMatrix, vao, matrixLocation;
 var lastUpdateTime = (new Date).getTime();
 //Camera parameters
-var cx = 0.5;
-var cy = 0.0;
-var cz = 1.0;
-var elevation = 0.0;
-var angle = -30.0;
+// var cx = 0.5;
+// var cy = 0.0;
+// var cz = 1.0;
+// var elevation = 0.0;
+// var angle = -30.0;
 
 var delta = 0.1;
 var flag = 0;
 
 //Cube parameters
-var cubeTx = 0.0;
-var cubeTy = 0.0;
-var cubeTz = -1.0;
+// var cubeTx = 0.0;
+// var cubeTy = 0.0;
+// var cubeTz = -1.0;
 var cubeRx = 0.0;
 var cubeRy = 0.0;
 var cubeRz = 0.0;
-var cubeS = 0.5;
+// var cubeS = 0.5;
+
+var cubeNormalMatrix;
+var cubeWorldMatrix;    //One world matrix for each cube...
+
+//define directional light  
+var dirLightAlpha = -utils.degToRad(60);
+var dirLightBeta  = -utils.degToRad(120);
+
+var directionalLight = [Math.cos(dirLightAlpha) * Math.cos(dirLightBeta),
+            Math.sin(dirLightAlpha),
+            Math.cos(dirLightAlpha) * Math.sin(dirLightBeta)
+            ];
+var directionalLightColor = [0.1, 1.0, 1.0];
+
+  //Define material color
+var cubeMaterialColor = [0.5, 0.5, 0.5];
+var lastUpdateTime = (new Date).getTime();
+
+var cubeWorldMatrix = utils.MakeWorld( -3.0, 0.0, -1.5, 0.0, 0.0, 0.0, 0.5);
 
 
 function main() {
@@ -45,7 +64,7 @@ function main() {
   //Tell WebGL how to convert from clip space to pixels
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
   //Clear the canvas
-  gl.clearColor(0, 0, 0, 0);
+  gl.clearColor(0.85, 0.85, 0.85, 1.0);
 
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.enable(gl.CULL_FACE);
@@ -89,14 +108,23 @@ function main() {
   var vertexShader = utils.createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
   var fragmentShader = utils.createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
   program = utils.createProgram(gl, vertexShader, fragmentShader);
+  gl.useProgram(program);
+
 
   // look up where the vertex data needs to go.
-  var positionAttributeLocation = gl.getAttribLocation(program, "a_position");  
-  var colorAttributeLocation = gl.getAttribLocation(program, "a_color");  
+  // var positionAttributeLocation = gl.getAttribLocation(program, "a_position");  
+  // var colorAttributeLocation = gl.getAttribLocation(program, "a_color");  
+  var positionAttributeLocation = gl.getAttribLocation(program, "inPosition");  
+  var normalAttributeLocation = gl.getAttribLocation(program, "inNormal");  
   var matrixLocation = gl.getUniformLocation(program, "matrix");
+  var materialDiffColorHandle = gl.getUniformLocation(program, 'mDiffColor');
+  var lightDirectionHandle = gl.getUniformLocation(program, 'lightDirection');
+  var lightColorHandle = gl.getUniformLocation(program, 'lightColor');
+  var normalMatrixPositionHandle = gl.getUniformLocation(program, 'nMatrix');
 
   // we create the perspective matrix only once because the perspective won't change
-  perspectiveMatrix = utils.MakePerspective(90, gl.canvas.width / gl.canvas.height, 0.1, 100.0);
+  perspectiveMatrix = utils.MakePerspective(90, aspectRatio, 0.1, 100.0);
+  viewMatrix = utils.MakeView(3.0, 3.0, 2.5, -45.0, -40.0);
 
 
 
@@ -117,16 +145,24 @@ function main() {
   // start at the beginning of the buffer
   gl.vertexAttribPointer(positionAttributeLocation, 3, gl.FLOAT, false, 0, 0);
 
-  colorBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
-  gl.enableVertexAttribArray(colorAttributeLocation);
-  //params similar to top
-  gl.vertexAttribPointer(colorAttributeLocation, 3, gl.FLOAT, false, 0, 0);
+  // colorBuffer = gl.createBuffer();
+  // gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+  // gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
+  // gl.enableVertexAttribArray(colorAttributeLocation);
+  // //params similar to top
+  // gl.vertexAttribPointer(colorAttributeLocation, 3, gl.FLOAT, false, 0, 0);
 
-  indexBuffer = gl.createBuffer();
+
+  var indexBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
   gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW); 
+
+  var normalBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(normalAttributeLocation);
+  gl.vertexAttribPointer(normalAttributeLocation, 3, gl.FLOAT, false, 0, 0);
+
 
   // // Tell it to use our program (pair of shaders)
   // gl.useProgram(program);
@@ -191,24 +227,29 @@ function main() {
 
   function animate() {
     var currentTime = (new Date).getTime();
-    if (lastUpdateTime) {
+    if(lastUpdateTime){
       var deltaC = (30 * (currentTime - lastUpdateTime)) / 1000.0;
       cubeRx += deltaC;
       cubeRy -= deltaC;
       cubeRz += deltaC;
-
-      if (flag == 0) cubeS += deltaC / 100;
-      else cubeS -= deltaC / 100;
-
-      if (cubeS >= 1.5) flag = 1;
-      else if (cubeS <= 0.5) flag = 0;
-
     }
 
-    //create world matrix for animated cube. needs to be done once per frame
-    worldMatrix = utils.MakeWorld(cubeTx, cubeTy, cubeTz,
-      cubeRx, cubeRy, cubeRz,
-      cubeS);
+
+
+    // //create world matrix for animated cube. needs to be done once per frame
+    // //Just with the MakeWorld function which implicitly multiplies the scaling and translation matrices
+    // worldMatrix = utils.MakeWorld(
+    //   //transpose
+    //   cubeTx, cubeTy, cubeTz,
+    //   //rotate
+    //   cubeRx, cubeRy, cubeRz,
+    //   //scale
+    //   cubeS);
+
+    cubeWorldMatrix = utils.MakeWorld( 0.0, 0.0, 0.0, cubeRx, cubeRy, cubeRz, 1.0);
+
+    cubeNormalMatrix = utils.invertMatrix(utils.transposeMatrix(cubeWorldMatrix));
+
     lastUpdateTime = currentTime;
   }
 
@@ -216,26 +257,40 @@ function drawScene() {
     animate();
 
     //repeat clearing the view and setting up the canvas, as well as using the program
-    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    // gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.enable(gl.DEPTH_TEST);
-    gl.enable(gl.CULL_FACE);
-    gl.useProgram(program);
+    // gl.enable(gl.DEPTH_TEST);
+    // gl.enable(gl.CULL_FACE);
+    // gl.useProgram(program);
 
     // Bind the attribute/buffer set we want.
-    gl.bindVertexArray(vao);
+    // gl.bindVertexArray(vao);
 
-    var viewMatrix = utils.MakeView(cx, cy, cz, elevation, angle);
+    // change this when you update the view (the position of the camera or the angles)
+    // var viewMatrix = utils.MakeView(cx, cy, cz, elevation, angle);
 
     // perspective * view * world (we have to multiply them in the opposite order)
-    var projectionMatrix = utils.multiplyMatrices(viewMatrix, worldMatrix);
+    var projectionMatrix = utils.multiplyMatrices(viewMatrix, cubeWorldMatrix);
     projectionMatrix = utils.multiplyMatrices(perspectiveMatrix, projectionMatrix);
 
+    // set projection matrix
     gl.uniformMatrix4fv(matrixLocation, gl.FALSE, utils.transposeMatrix(projectionMatrix));
 
-    //bind buffer for drawing cube using indices
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    //set normal matrix
+    gl.uniformMatrix4fv(normalMatrixPositionHandle, gl.FALSE, utils.transposeMatrix(cubeNormalMatrix));
+
+    //set info about object and light colors:
+    gl.uniform3fv(materialDiffColorHandle, cubeMaterialColor);
+    gl.uniform3fv(lightColorHandle,  directionalLightColor);
+    gl.uniform3fv(lightDirectionHandle,  directionalLight);
+
+
+    // //bind buffer for drawing cube using indices
+    // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+
+    gl.bindVertexArray(vao);
+
     // draw cube
     gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
 
@@ -247,51 +302,47 @@ function drawScene() {
 }
 
 
-
-//Utility function to compile the shaders
-function createShader(gl, type, source) {
-  var shader = gl.createShader(type);
-  gl.shaderSource(shader, source);
-  gl.compileShader(shader);
-  var success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
-  if (success) {    
-    return shader;
-  }else{
-    console.log(gl.getShaderInfoLog(shader));  // eslint-disable-line
-    gl.deleteShader(shader);
-    throw "could not compile shader:" + gl.getShaderInfoLog(shader);
-  }
-
+function keyFunction(e){
+ 
+      if (e.keyCode == 37) {  // Left arrow
+        cx-=delta;
+      }
+      if (e.keyCode == 39) {  // Right arrow
+        cx+=delta;
+      } 
+      if (e.keyCode == 38) {  // Up arrow
+        cz-=delta;
+      }
+      if (e.keyCode == 40) {  // Down arrow
+        cz+=delta;
+      }
+      if (e.keyCode == 171) { // Add
+        cy+=delta;
+      }
+      if (e.keyCode == 173) { // Subtract
+        cy-=delta;
+      }
+      
+      if (e.keyCode == 65) {  // a
+        angle-=delta*10.0;
+      }
+      if (e.keyCode == 68) {  // d
+        angle+=delta*10.0;
+      } 
+      if (e.keyCode == 87) {  // w
+        elevation+=delta*10.0;
+      }
+      if (e.keyCode == 83) {  // s
+        elevation-=delta*10.0;
+      }
+    
+      //If you put it here instead, you will redraw the cube only when the camera has been moved
+      window.requestAnimationFrame(drawScene);
 }
-//Utility function to create and link the GLSL ES program
-function createProgram(gl, vertexShader, fragmentShader) {
-  var program = gl.createProgram();
-  gl.attachShader(program, vertexShader);
-  gl.attachShader(program, fragmentShader);
-  gl.linkProgram(program);
-  var success = gl.getProgramParameter(program, gl.LINK_STATUS);
-  if (success) {
-    return program;
-  }else{
-     throw ("program filed to link:" + gl.getProgramInfoLog (program));
-     console.log(gl.getProgramInfoLog(program));  // eslint-disable-line
-     gl.deleteProgram(program);
-     return undefined;
-  }
-}
-
-//Utility function to resize the canvas to full screen
-function autoResizeCanvas(canvas) {
-    const expandFullScreen = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
-    expandFullScreen();
-    // Resize screen when the browser has triggered the resize event
-    window.addEventListener('resize', expandFullScreen);
-  }
-
 
 
 //Call the main function once the html has finished loading
 window.onload = main;
+
+//// 'window' is a JavaScript object (if "canvas", it will not work)
+// window.addEventListener("keyup", keyFunction, false);
