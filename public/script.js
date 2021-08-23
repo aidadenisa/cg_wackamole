@@ -15,6 +15,12 @@ var directionalLight,
     directionalLightColor,
     materialColor;
 
+var viewMatrix;
+
+var cx = 0.0, cy=3, cz=2.5, angle=0 , elevation=-30.0;
+
+var delta = 0.2;
+
 async function main() {
 
   var lastUpdateTime = (new Date).getTime();
@@ -22,7 +28,7 @@ async function main() {
   var cubeRx = 0.0;
   var cubeRy = 0.0;
   var cubeRz = 0.0;
-  var cubeS  = 0.5;
+  // var cubeS  = 0.0;
 
   var materialColor = [0.5, 0.5, 0.5];
 
@@ -72,24 +78,30 @@ async function main() {
 
   function animate(){
     var currentTime = (new Date).getTime();
-    if(lastUpdateTime){
-      var deltaC = (30 * (currentTime - lastUpdateTime)) / 1000.0;
-      cubeRx += deltaC;
-      cubeRy -= deltaC;
-      cubeRz += deltaC;
-    }
+    // if(lastUpdateTime){
+    //   var deltaC = (30 * (currentTime - lastUpdateTime)) / 1000.0;
+    //   cameraRx += deltaC;
+    //   cameraRy -= deltaC;
+    //   cameraRz += deltaC;
+    // }
+
+    viewMatrix = utils.MakeView(cx, cy, cz, elevation, angle);
+
+    ////
     worldMatrix = utils.MakeWorld(  0.0, 0.0, 0.0, cubeRx, cubeRy, cubeRz, 1.0);
+    normalMatrix = utils.invertMatrix(utils.transposeMatrix(worldMatrix));
+
     lastUpdateTime = currentTime;               
   }
 
 
   function drawScene() {
 
-    //delete these or put them in animate, when you uncomment animate function call
-    worldMatrix = utils.MakeWorld(  0.0, 0.0, 0.0, cubeRx, cubeRy, cubeRz, 1.0);
-    normalMatrix = utils.invertMatrix(utils.transposeMatrix(worldMatrix));
+    // //delete these or put them in animate, when you uncomment animate function call
+    // worldMatrix = utils.MakeWorld(  0.0, 0.0, 0.0, cubeRx, cubeRy, cubeRz, 1.0);
+    // normalMatrix = utils.invertMatrix(utils.transposeMatrix(worldMatrix));
 
-    // animate();
+    animate();
 
     utils.resizeCanvasToDisplaySize(gl.canvas);
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -98,7 +110,7 @@ async function main() {
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);
 
-    var viewMatrix = utils.MakeView(1.5, 0.0, 3.0, 0.0, -30.0);
+    // var viewMatrix = utils.MakeView(0.0, 3.0, 2.5, 0, -30.0);
     var viewWorldMatrix = utils.multiplyMatrices(viewMatrix, worldMatrix);
     var projectionMatrix = utils.multiplyMatrices(perspectiveMatrix, viewWorldMatrix);
 
@@ -122,6 +134,48 @@ async function main() {
     
     // window.requestAnimationFrame(drawScene);
   }
+
+  function keyFunction(e){
+ 
+      if (e.keyCode == 37) {  // Left arrow
+        cx-=delta;
+      }
+      if (e.keyCode == 39) {  // Right arrow
+        cx+=delta;
+      } 
+      if (e.keyCode == 38) {  // Up arrow
+        cz-=delta;
+      }
+      if (e.keyCode == 40) {  // Down arrow
+        cz+=delta;
+      }
+      if (e.keyCode == 32) { // Add
+        cy+=delta;
+      }
+      if (e.keyCode == 13) { // Subtract
+        cy-=delta;
+      }
+      
+      if (e.keyCode == 65) {  // a
+        angle-=delta*10.0;
+      }
+      if (e.keyCode == 68) {  // d
+        angle+=delta*10.0;
+      } 
+      if (e.keyCode == 87) {  // w
+        elevation+=delta*10.0;
+      }
+      if (e.keyCode == 83) {  // s
+        elevation-=delta*10.0;
+      }
+    
+      //If you put it here instead, you will redraw the cube only when the camera has been moved
+      window.requestAnimationFrame(drawScene);
+  }
+
+
+  //// 'window' is a JavaScript object (if "canvas", it will not work)
+  window.addEventListener("keyup", keyFunction, false);
 }
 
 function getAttributeLocations() {
@@ -215,5 +269,8 @@ async function init(){
     
     await main();
 }
+
+
+
 
 window.onload = init;
