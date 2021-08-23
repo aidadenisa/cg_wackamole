@@ -10,10 +10,14 @@
 //  gl_Position = matrix * vec4(a_position,1.0);
 //}
 
-in vec4 a_position;
+in vec3 inPosition;
+in vec3 inNormal;
+out vec3 fsNormal;
 
-uniform mat4 matrix; //*****NEW*****// 
+uniform mat4 matrix;       //world matrix
+uniform mat4 nMatrix;     //matrix to transform normals
+
 void main() {
-
-  gl_Position = matrix * a_position;//*****NEW*****// 
+  fsNormal = mat3(nMatrix) * inNormal; 
+  gl_Position = matrix * vec4(inPosition, 1.0);
 }

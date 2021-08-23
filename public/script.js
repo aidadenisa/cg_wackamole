@@ -3,9 +3,17 @@ var gl;
 var baseDir;
 
 var positionAttributeLocation,
-    positionAttributeLocation,
     matrixLocation,
-    textLocation;
+    textLocation,
+    normalAttributeLocation ,
+    materialDiffColorHandle,
+    lightDirectionHandle,
+    lightColorHandle,
+    normalMatrixPositionHandle;
+
+var directionalLight,
+    directionalLightColor,
+    materialColor;
 
 async function main() {
 
@@ -16,12 +24,16 @@ async function main() {
   var cubeRz = 0.0;
   var cubeS  = 0.5;
 
+  var materialColor = [0.5, 0.5, 0.5];
+
+
   utils.resizeCanvasToDisplaySize(gl.canvas);
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
   gl.clearColor(0, 0, 0, 0); 
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.enable(gl.DEPTH_TEST);
 
+  defineDirectionalLight();
 
   //load models
   var cabinet = await loadObject("assets/cabinet.obj");
@@ -32,6 +44,7 @@ async function main() {
 
   var vao = createVAO(cabinet);
 
+  //////////DO NOT DELETE, GOOD FOR LATER!!!!!///////////////
   // // Create a texture.
   // var texture = gl.createTexture();
   // // use texture unit 0
@@ -72,7 +85,9 @@ async function main() {
 
   function drawScene() {
 
+    //delete these or put them in animate, when you uncomment animate function call
     worldMatrix = utils.MakeWorld(  0.0, 0.0, 0.0, cubeRx, cubeRy, cubeRz, 1.0);
+    normalMatrix = utils.invertMatrix(utils.transposeMatrix(worldMatrix));
 
     // animate();
 
@@ -84,12 +99,20 @@ async function main() {
     gl.enable(gl.CULL_FACE);
 
     var viewMatrix = utils.MakeView(1.5, 0.0, 3.0, 0.0, -30.0);
-
     var viewWorldMatrix = utils.multiplyMatrices(viewMatrix, worldMatrix);
     var projectionMatrix = utils.multiplyMatrices(perspectiveMatrix, viewWorldMatrix);
-   
+
+    // send projection matrix to shaders
     gl.uniformMatrix4fv(matrixLocation, gl.FALSE, utils.transposeMatrix(projectionMatrix));
-    
+
+    // send normal matrix to shaders
+    gl.uniformMatrix4fv(normalMatrixPositionHandle, gl.FALSE, utils.transposeMatrix(normalMatrix));
+
+    //send info about object and light colors to shader
+    gl.uniform3fv(materialDiffColorHandle, materialColor);
+    gl.uniform3fv(lightColorHandle,  directionalLightColor);
+    gl.uniform3fv(lightDirectionHandle,  directionalLight);
+
     // gl.activeTexture(gl.TEXTURE0);
     // gl.bindTexture(gl.TEXTURE_2D, texture);
     // gl.uniform1i(textLocation, 0);
@@ -103,10 +126,17 @@ async function main() {
 
 function getAttributeLocations() {
   //getAttribute location
-  positionAttributeLocation = gl.getAttribLocation(program, "a_position");  
-  uvAttributeLocation = gl.getAttribLocation(program, "a_uv");  
-  matrixLocation = gl.getUniformLocation(program, "matrix");  
-  textLocation = gl.getUniformLocation(program, "u_texture");
+  // positionAttributeLocation = gl.getAttribLocation(program, "a_position");  
+  // uvAttributeLocation = gl.getAttribLocation(program, "a_uv");  
+  // matrixLocation = gl.getUniformLocation(program, "matrix");  
+  // textLocation = gl.getUniformLocation(program, "u_texture");
+  positionAttributeLocation = gl.getAttribLocation(program, "inPosition");  
+  normalAttributeLocation = gl.getAttribLocation(program, "inNormal");  
+  matrixLocation = gl.getUniformLocation(program, "matrix");
+  materialDiffColorHandle = gl.getUniformLocation(program, 'mDiffColor');
+  lightDirectionHandle = gl.getUniformLocation(program, 'lightDirection');
+  lightColorHandle = gl.getUniformLocation(program, 'lightColor');
+  normalMatrixPositionHandle = gl.getUniformLocation(program, 'nMatrix');
 }
 
 //Create the vertex array that can be used multiple times for drawing the same obj
@@ -120,11 +150,11 @@ function createVAO(obj) {
   gl.enableVertexAttribArray(positionAttributeLocation);
   gl.vertexAttribPointer(positionAttributeLocation, 3, gl.FLOAT, false, 0, 0);
 
-  // var normalBuffer = gl.createBuffer();
-  // gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
-  // gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
-  // gl.enableVertexAttribArray(normalAttributeLocation);
-  // gl.vertexAttribPointer(normalAttributeLocation, 3, gl.FLOAT, false, 0, 0);
+  var normalBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(obj.vertexNormals), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(normalAttributeLocation);
+  gl.vertexAttribPointer(normalAttributeLocation, 3, gl.FLOAT, false, 0, 0);
 
   // var uvBuffer = gl.createBuffer();
   // gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
@@ -137,6 +167,18 @@ function createVAO(obj) {
   gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(obj.indices), gl.STATIC_DRAW); 
 
   return vao;
+}
+
+function defineDirectionalLight() {
+  //define directional light  
+  var dirLightAlpha = -utils.degToRad(60);
+  var dirLightBeta  = -utils.degToRad(120);
+
+  directionalLight = [Math.cos(dirLightAlpha) * Math.cos(dirLightBeta),
+              Math.sin(dirLightAlpha),
+              Math.cos(dirLightAlpha) * Math.sin(dirLightBeta)
+              ];
+  directionalLightColor = [0.1, 1.0, 1.0];
 }
 
 async function loadObject(url) {
