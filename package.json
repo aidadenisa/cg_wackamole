@@ -9,5 +9,8 @@
   },
   "author": "",
   "license": "ISC",
-  "homepage": "https://github.com/aidadenisa/cg_wackamole#readme"
+  "homepage": "https://github.com/aidadenisa/cg_wackamole#readme",
+  "dependencies": {
+    "express": "^4.17.1"
+  }
 }
