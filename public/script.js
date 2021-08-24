@@ -79,7 +79,7 @@ async function main() {
   //load models
   var cabinet = await loadObject("assets/cabinet.obj");
   var mole = await loadObject("assets/mole.obj");
-  var hammer = await loadObject("assets/mole.obj");
+  var hammer = await loadObject("assets/hammer.obj");
 
   getAttributeLocations();
 
@@ -170,14 +170,6 @@ async function main() {
     // // var viewMatrix = utils.MakeView(0.0, 3.0, 2.5, 0, -30.0);
     // var viewWorldMatrix = utils.multiplyMatrices(viewMatrix, worldMatrix);
     // var projectionMatrix = utils.multiplyMatrices(perspectiveMatrix, viewWorldMatrix);
-
-  
-
-
-
-    
-
-
     
   }
 
@@ -218,7 +210,7 @@ async function main() {
     }
 
     var hammerNode = new Node();
-    hammerNode.localMatrix = utils.MakeWorld(  0.5, 2.0, 2.0, 0.0,0.0,-45, 1);
+    hammerNode.localMatrix = utils.MakeWorld(  0.5, 1.0, 1.3, 0.0,-20.0,-45, 1);
     hammerNode.drawInfo = {
       bufferLength: hammer.indices.length,
       vertexArray: vaoHammer
