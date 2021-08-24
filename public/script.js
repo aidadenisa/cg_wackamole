@@ -21,14 +21,49 @@ var cx = 0.0, cy=3, cz=2.5, angle=0 , elevation=-30.0;
 
 var delta = 0.2;
 
+//example taken from webGLTutorial2
+var Node = function() {
+  this.children = [];
+  this.localMatrix = utils.identityMatrix();
+  this.worldMatrix = utils.identityMatrix();
+};
+
+Node.prototype.setParent = function(parent) {
+  // remove us from our parent
+  if (this.parent) {
+    var ndx = this.parent.children.indexOf(this);
+    if (ndx >= 0) {
+      this.parent.children.splice(ndx, 1);
+    }
+  }
+
+  // Add us to our new parent
+  if (parent) {
+    parent.children.push(this);
+  }
+  this.parent = parent;
+};
+
+Node.prototype.updateWorldMatrix = function(matrix) {
+  if (matrix) {
+    // a matrix was passed in so do the math
+    this.worldMatrix = utils.multiplyMatrices(matrix, this.localMatrix);
+  } else {
+    // no matrix was passed in so just copy.
+    utils.copy(this.localMatrix, this.worldMatrix);
+  }
+
+  // now process all the children
+  var worldMatrix = this.worldMatrix;
+  this.children.forEach(function(child) {
+    child.updateWorldMatrix(worldMatrix);
+  });
+};
+
+
 async function main() {
 
   var lastUpdateTime = (new Date).getTime();
-
-  var cubeRx = 0.0;
-  var cubeRy = 0.0;
-  var cubeRz = 0.0;
-  // var cubeS  = 0.0;
 
   var materialColor = [0.5, 0.5, 0.5];
 
@@ -43,14 +78,20 @@ async function main() {
 
   //load models
   var cabinet = await loadObject("assets/cabinet.obj");
+  var mole = await loadObject("assets/mole.obj");
+  var hammer = await loadObject("assets/mole.obj");
 
   getAttributeLocations();
 
   var perspectiveMatrix = utils.MakePerspective(90, gl.canvas.width/gl.canvas.height, 0.1, 100.0);
 
-  var vao = createVAO(cabinet);
+  var vaoCabinet = createVAO(cabinet);
+  var vaoMole = createVAO(mole);
+  var vaoHammer = createVAO(hammer);
 
-  //////////DO NOT DELETE, GOOD FOR LATER!!!!!///////////////
+  // list of objects to render
+  var objects = defineSceneGraph();
+
   // Create a texture.
   var texture = gl.createTexture();
   // use texture unit 0
@@ -58,7 +99,7 @@ async function main() {
   // bind to the TEXTURE_2D bind point of texture unit 0
   gl.bindTexture(gl.TEXTURE_2D, texture);
 
-  // Asynchronously load an image
+  // Asynchronously load the texture
   var image = await loadTexture('assets/Mole.png', texture);
 
   drawScene();
@@ -75,18 +116,21 @@ async function main() {
     viewMatrix = utils.MakeView(cx, cy, cz, elevation, angle);
 
     ////
-    worldMatrix = utils.MakeWorld(  0.0, 0.0, 0.0, cubeRx, cubeRy, cubeRz, 1.0);
-    normalMatrix = utils.invertMatrix(utils.transposeMatrix(worldMatrix));
+    // worldMatrix = utils.MakeWorld(  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+    // normalMatrix = utils.invertMatrix(utils.transposeMatrix(worldMatrix));
 
     lastUpdateTime = currentTime;               
   }
 
 
-  function drawScene() {
+  function drawScene() { //// DRAW THE LIST OF OBJECTS
 
-    // //delete these or put them in animate, when you uncomment animate function call
-    // worldMatrix = utils.MakeWorld(  0.0, 0.0, 0.0, cubeRx, cubeRy, cubeRz, 1.0);
+
+    // // //delete these or put them in animate, when you uncomment animate function call
+    // worldMatrix = utils.MakeWorld(  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);
     // normalMatrix = utils.invertMatrix(utils.transposeMatrix(worldMatrix));
+    // var viewMatrix = utils.MakeView(0.0, 3.0, 2.5, 0, -30.0);
+
 
     animate();
 
@@ -97,29 +141,94 @@ async function main() {
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);
 
-    // var viewMatrix = utils.MakeView(0.0, 3.0, 2.5, 0, -30.0);
-    var viewWorldMatrix = utils.multiplyMatrices(viewMatrix, worldMatrix);
-    var projectionMatrix = utils.multiplyMatrices(perspectiveMatrix, viewWorldMatrix);
+    for(var i=0; i<objects.length; i++) {
+      var viewWorldMatrix = utils.multiplyMatrices(viewMatrix, objects[i].localMatrix);
+      var projectionMatrix = utils.multiplyMatrices(perspectiveMatrix, viewWorldMatrix);
 
-    // send projection matrix to shaders
-    gl.uniformMatrix4fv(matrixLocation, gl.FALSE, utils.transposeMatrix(projectionMatrix));
+      var normalMatrix = utils.invertMatrix(utils.transposeMatrix(objects[i].localMatrix));
 
-    // send normal matrix to shaders
-    gl.uniformMatrix4fv(normalMatrixPositionHandle, gl.FALSE, utils.transposeMatrix(normalMatrix));
+      // send projection matrix to shaders
+      gl.uniformMatrix4fv(matrixLocation, gl.FALSE, utils.transposeMatrix(projectionMatrix));
 
-    //send info about object and light colors to shader
-    gl.uniform3fv(materialDiffColorHandle, materialColor);
-    gl.uniform3fv(lightColorHandle,  directionalLightColor);
-    gl.uniform3fv(lightDirectionHandle,  directionalLight);
+      // send normal matrix to shaders
+      gl.uniformMatrix4fv(normalMatrixPositionHandle, gl.FALSE, utils.transposeMatrix(normalMatrix));
 
-    //BIND TEXTURE
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.uniform1i(textLocation, 0);
+      //send info about object and light colors to shader
+      gl.uniform3fv(materialDiffColorHandle, materialColor);
+      gl.uniform3fv(lightColorHandle,  directionalLightColor);
+      gl.uniform3fv(lightDirectionHandle,  directionalLight);
 
-    gl.bindVertexArray(vao);
-    gl.drawElements(gl.TRIANGLES, cabinet.indices.length, gl.UNSIGNED_SHORT, 0 );
+        //BIND TEXTURE
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.uniform1i(textLocation, 0);
+
+      gl.bindVertexArray(objects[i].drawInfo.vertexArray);
+      gl.drawElements(gl.TRIANGLES, objects[i].drawInfo.bufferLength, gl.UNSIGNED_SHORT, 0 );
+    }
+
+    // // var viewMatrix = utils.MakeView(0.0, 3.0, 2.5, 0, -30.0);
+    // var viewWorldMatrix = utils.multiplyMatrices(viewMatrix, worldMatrix);
+    // var projectionMatrix = utils.multiplyMatrices(perspectiveMatrix, viewWorldMatrix);
+
+  
+
+
+
     
+
+
+    
+  }
+
+  function defineSceneGraph() {
+    var objects = [];
+
+    //positions for moles: y=1.0 up; y<0.5 down
+
+
+    //cabinet node - root
+    var cabinetNode = new Node();
+    cabinetNode.localMatrix = utils.MakeWorld(  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+    cabinetNode.drawInfo = {
+      bufferLength: cabinet.indices.length,
+      vertexArray: vaoCabinet
+    }
+    objects.push(cabinetNode);
+
+    var initialX = -1.05;
+    var initialY = 1.0;
+    var initialZ = 0.0;
+
+    for(i = 0; i<5; i++) {
+      initialZ = (i%2) * 0.5;
+      initialX += 0.7 / 2;
+
+      var moleNode = new Node();
+      moleNode.localMatrix = utils.MakeWorld(initialX, initialY, initialZ, 0.0, 0.0, 0.0, 1.0);
+      moleNode.drawInfo = {
+        bufferLength: mole.indices.length,
+        vertexArray: vaoMole
+      }
+      moleNode.setParent(cabinetNode);
+
+      objects.push(moleNode);
+
+      
+    }
+
+    var hammerNode = new Node();
+    hammerNode.localMatrix = utils.MakeWorld(  0.5, 2.0, 2.0, 0.0,0.0,-45, 1);
+    hammerNode.drawInfo = {
+      bufferLength: hammer.indices.length,
+      vertexArray: vaoHammer
+    }
+
+    hammerNode.setParent(cabinetNode);
+    objects.push(hammerNode);
+
+    return objects;
+
   }
 
   function keyFunction(e){
