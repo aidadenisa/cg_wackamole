@@ -51,28 +51,15 @@ async function main() {
   var vao = createVAO(cabinet);
 
   //////////DO NOT DELETE, GOOD FOR LATER!!!!!///////////////
-  // // Create a texture.
-  // var texture = gl.createTexture();
-  // // use texture unit 0
-  // gl.activeTexture(gl.TEXTURE0);
-  // // bind to the TEXTURE_2D bind point of texture unit 0
-  // gl.bindTexture(gl.TEXTURE_2D, texture);
+  // Create a texture.
+  var texture = gl.createTexture();
+  // use texture unit 0
+  gl.activeTexture(gl.TEXTURE0);
+  // bind to the TEXTURE_2D bind point of texture unit 0
+  gl.bindTexture(gl.TEXTURE_2D, texture);
 
   // Asynchronously load an image
-  // var image = new Image();
-  // image.src = "assets/crate.png";
-  // image.onload = function() {
-  //     //Make sure this is the active one
-  //     gl.activeTexture(gl.TEXTURE0);
-  //     gl.bindTexture(gl.TEXTURE_2D, texture);
-  //     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-  //     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-            
-  //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-
-  //     gl.generateMipmap(gl.TEXTURE_2D);
-  //   };
+  var image = await loadTexture('assets/Mole.png', texture);
 
   drawScene();
 
@@ -125,14 +112,14 @@ async function main() {
     gl.uniform3fv(lightColorHandle,  directionalLightColor);
     gl.uniform3fv(lightDirectionHandle,  directionalLight);
 
-    // gl.activeTexture(gl.TEXTURE0);
-    // gl.bindTexture(gl.TEXTURE_2D, texture);
-    // gl.uniform1i(textLocation, 0);
+    //BIND TEXTURE
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.uniform1i(textLocation, 0);
 
     gl.bindVertexArray(vao);
     gl.drawElements(gl.TRIANGLES, cabinet.indices.length, gl.UNSIGNED_SHORT, 0 );
     
-    // window.requestAnimationFrame(drawScene);
   }
 
   function keyFunction(e){
@@ -176,14 +163,36 @@ async function main() {
 
   //// 'window' is a JavaScript object (if "canvas", it will not work)
   window.addEventListener("keyup", keyFunction, false);
+
+  window.requestAnimationFrame(drawScene);
+
+}
+
+async function loadTexture(url, texture) {
+  var image = new Image();
+  image.src = url;
+
+  await image.decode();
+  //Make sure this is the active one
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+        
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+  gl.generateMipmap(gl.TEXTURE_2D);
+
+  return image;
 }
 
 function getAttributeLocations() {
   //getAttribute location
   // positionAttributeLocation = gl.getAttribLocation(program, "a_position");  
-  // uvAttributeLocation = gl.getAttribLocation(program, "a_uv");  
+  uvAttributeLocation = gl.getAttribLocation(program, "a_uv");  
   // matrixLocation = gl.getUniformLocation(program, "matrix");  
-  // textLocation = gl.getUniformLocation(program, "u_texture");
+  textLocation = gl.getUniformLocation(program, "u_texture");
   positionAttributeLocation = gl.getAttribLocation(program, "inPosition");  
   normalAttributeLocation = gl.getAttribLocation(program, "inNormal");  
   matrixLocation = gl.getUniformLocation(program, "matrix");
@@ -210,11 +219,11 @@ function createVAO(obj) {
   gl.enableVertexAttribArray(normalAttributeLocation);
   gl.vertexAttribPointer(normalAttributeLocation, 3, gl.FLOAT, false, 0, 0);
 
-  // var uvBuffer = gl.createBuffer();
-  // gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
-  // gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(obj.textures), gl.STATIC_DRAW);
-  // gl.enableVertexAttribArray(uvAttributeLocation);
-  // gl.vertexAttribPointer(uvAttributeLocation, 2, gl.FLOAT, false, 0, 0);
+  var uvBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(obj.textures), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(uvAttributeLocation);
+  gl.vertexAttribPointer(uvAttributeLocation, 2, gl.FLOAT, false, 0, 0);
 
   var indexBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
@@ -232,7 +241,7 @@ function defineDirectionalLight() {
               Math.sin(dirLightAlpha),
               Math.cos(dirLightAlpha) * Math.sin(dirLightBeta)
               ];
-  directionalLightColor = [0.1, 1.0, 1.0];
+  directionalLightColor = [1.0, 1.0, 1.0];
 }
 
 async function loadObject(url) {
