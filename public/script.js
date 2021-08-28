@@ -1,7 +1,22 @@
 var program;
 var gl;
 var baseDir;
-
+var defHammer = [];
+var animateIndicator = {};
+var animateFrameRate = 60;
+var moveHammerAnimTimeAsSec = 0.3;
+var hammerRotation = -40;
+var hammerStepRotation;
+var animateStepIndicator = {"mole":0,"hammer":0};
+var animatingMoles={"1":false,"2":false,"3":false,"4":false,"5":false};
+var currentAnimatingMole;
+var isAssa = true;
+var animationMovementCoordinates = {"mole":{"x":0,"y":0,"z":0},"hammer":{"x":0,"y":0,"z":0}};
+var animateStatus = {};
+var moleInterval = null;
+var locker=false;
+var isGameStarted = false;
+var score=0;
 var positionAttributeLocation,
     matrixLocation,
     textLocation,
@@ -14,6 +29,8 @@ var positionAttributeLocation,
 var directionalLight,
     directionalLightColor,
     materialColor;
+
+var lastUpdateTime=(new Date).getTime();
 
 var viewMatrix;
 
@@ -70,7 +87,7 @@ async function main() {
 
   utils.resizeCanvasToDisplaySize(gl.canvas);
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-  gl.clearColor(0, 0, 0, 0); 
+  gl.clearColor(0, 0, 0, 0);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.enable(gl.DEPTH_TEST);
 
@@ -104,23 +121,22 @@ async function main() {
 
   drawScene();
 
-  function animate(){
+  /*function animate(){
     var currentTime = (new Date).getTime();
-    // if(lastUpdateTime){
-    //   var deltaC = (30 * (currentTime - lastUpdateTime)) / 1000.0;
-    //   cameraRx += deltaC;
-    //   cameraRy -= deltaC;
-    //   cameraRz += deltaC;
-    // }
+     if(lastUpdateTime){
+       var deltaC = (30 * (currentTime - lastUpdateTime)) / 1000.0;
+       //moveHammer(deltaC);
+     }
 
-    viewMatrix = utils.MakeView(cx, cy, cz, elevation, angle);
 
+    //moveMole();
+    //moveHammer();
     ////
     // worldMatrix = utils.MakeWorld(  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);
     // normalMatrix = utils.invertMatrix(utils.transposeMatrix(worldMatrix));
 
-    lastUpdateTime = currentTime;               
-  }
+    lastUpdateTime = currentTime;
+  }*/
 
 
   function drawScene() { //// DRAW THE LIST OF OBJECTS
@@ -132,7 +148,7 @@ async function main() {
     // var viewMatrix = utils.MakeView(0.0, 3.0, 2.5, 0, -30.0);
 
 
-    animate();
+   viewMatrix = utils.MakeView(cx, cy, cz, elevation, angle);
 
     utils.resizeCanvasToDisplaySize(gl.canvas);
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -166,12 +182,105 @@ async function main() {
       gl.bindVertexArray(objects[i].drawInfo.vertexArray);
       gl.drawElements(gl.TRIANGLES, objects[i].drawInfo.bufferLength, gl.UNSIGNED_SHORT, 0 );
     }
-
+    mainAnimate();
     // // var viewMatrix = utils.MakeView(0.0, 3.0, 2.5, 0, -30.0);
     // var viewWorldMatrix = utils.multiplyMatrices(viewMatrix, worldMatrix);
     // var projectionMatrix = utils.multiplyMatrices(perspectiveMatrix, viewWorldMatrix);
-    
+    window.requestAnimationFrame(drawScene);
   }
+
+  function moveMole(){
+    if(animateStepIndicator["mole"] == 0){
+      var randomer =Math.floor(Math.random() * 5) + 1;
+      animatingMoles[randomer] = !animatingMoles[randomer];
+      currentAnimatingMole = randomer;
+    }
+    if(animatingMoles[currentAnimatingMole]){
+      objects[currentAnimatingMole].localMatrix[7]+=((1-0)/(animateFrameRate*moveHammerAnimTimeAsSec));
+    }else{
+     objects[currentAnimatingMole].localMatrix[7]-=((1-0)/(animateFrameRate*moveHammerAnimTimeAsSec));
+    }
+    if(animateStepIndicator["mole"] == animateFrameRate*moveHammerAnimTimeAsSec){
+      animateStepIndicator["mole"] = -1;
+    }
+    animateStepIndicator["mole"]++;
+  }
+  function mainAnimate(){
+    if(animateStatus["hammer"] == true){
+      moveHammer();
+    }
+    if(animateStatus["mole"] == true){
+      moveMole();
+    }
+  }
+  function animationTrigger(type,i){
+    if(type=="hammer"){
+        animateStatus["hammer"] = true;
+        animateIndicator["hammer"] = i;
+        animateStepIndicator["hammer"] = 0;
+    }else if(type=="mole"){
+        animateStatus["mole"] = true;
+        animateIndicator["mole"] = i;
+        animateStepIndicator["mole"] = 0;
+    }
+  }
+  function moveHammer(){
+    console.log(animateStepIndicator["hammer"]);
+    world=objects[6].localMatrix;
+
+    if(animateStepIndicator["hammer"] == 0){
+      hammerStepRotation = (-80-(hammerRotation))/(animateFrameRate*moveHammerAnimTimeAsSec);
+      //animateStatus["hammer"] = false;
+
+      // 0.7, 1.5, 1.3, 0.0,-40.0,-45, 1
+      
+
+      animationMovementCoordinates["hammer"]["x"] = (objects[animateIndicator["hammer"]].localMatrix[3]-world[3])/(animateFrameRate*moveHammerAnimTimeAsSec);
+      animationMovementCoordinates["hammer"]["y"] = (1-world[7])/(animateFrameRate*moveHammerAnimTimeAsSec);
+      animationMovementCoordinates["hammer"]["z"] = (objects[animateIndicator["hammer"]].localMatrix[11]-world[11])/(animateFrameRate*moveHammerAnimTimeAsSec);
+    }
+    if(animateStepIndicator["hammer"] == animateFrameRate*moveHammerAnimTimeAsSec){
+      if(objects[animateIndicator["hammer"]].localMatrix[7] > 0.15){
+        score++;
+        document.getElementById("score").innerHTML = score;
+        if(currentAnimatingMole == animateIndicator["hammer"]){
+          animateStepIndicator["mole"] = 0;
+        }
+        objects[animateIndicator["hammer"]].localMatrix[7] = 0;
+        animatingMoles[animateIndicator["hammer"]] = false;
+      }
+      hammerStepRotation = (-40-(hammerRotation))/(animateFrameRate*moveHammerAnimTimeAsSec);
+
+      defHammer["x"]=(0.7-world[3])/(animateFrameRate*moveHammerAnimTimeAsSec);
+       defHammer["y"]=(1.5-world[7])/(animateFrameRate*moveHammerAnimTimeAsSec);
+       defHammer["z"]=(1.3-world[11])/(animateFrameRate*moveHammerAnimTimeAsSec);
+    }
+    if(animateStepIndicator["hammer"] < animateFrameRate*moveHammerAnimTimeAsSec){
+
+     // var originRotation = -40;
+      world[3]+=animationMovementCoordinates["hammer"]["x"];
+      world[7]+=animationMovementCoordinates["hammer"]["y"];
+      world[11]+=animationMovementCoordinates["hammer"]["z"];
+    }
+    else if(animateStepIndicator["hammer"] >= animateFrameRate*moveHammerAnimTimeAsSec){
+      
+     // var originRotation = -80;
+      world[3]+=defHammer["x"];
+      world[7]+=defHammer["y"];
+      world[11]+=defHammer["z"];
+    }
+    if(animateStepIndicator["hammer"] == animateFrameRate*moveHammerAnimTimeAsSec*2) animateStatus["hammer"] = false;
+    hammerRotation += hammerStepRotation;
+    console.log(hammerRotation);
+    rotate=utils.MakeRotateXMatrix(hammerStepRotation);
+    itrans=utils.multiplyMatrices(rotate,utils.invertMatrix(utils.MakeTranslateMatrix(world[3],world[7],world[11])));
+    trans=utils.multiplyMatrices(utils.MakeTranslateMatrix(world[3],world[7],world[11]),itrans);
+    world=utils.multiplyMatrices(trans,world);
+    objects[6].localMatrix=world;
+    animateStepIndicator["hammer"]++;
+  }
+
+
 
   function defineSceneGraph() {
     var objects = [];
@@ -181,7 +290,7 @@ async function main() {
 
     //cabinet node - root
     var cabinetNode = new Node();
-    cabinetNode.localMatrix = utils.MakeWorld(  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+    cabinetNode.localMatrix = utils.MakeWorld(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);
     cabinetNode.drawInfo = {
       bufferLength: cabinet.indices.length,
       vertexArray: vaoCabinet
@@ -189,7 +298,7 @@ async function main() {
     objects.push(cabinetNode);
 
     var initialX = -1.05;
-    var initialY = 1.0;
+    var initialY = 0.0;
     var initialZ = 0.0;
 
     for(i = 0; i<5; i++) {
@@ -206,11 +315,11 @@ async function main() {
 
       objects.push(moleNode);
 
-      
+
     }
 
     var hammerNode = new Node();
-    hammerNode.localMatrix = utils.MakeWorld(  0.5, 1.0, 1.3, 0.0,-20.0,-45, 1);
+    hammerNode.localMatrix = utils.MakeWorld(  0.7, 1.5, 1.3, 0.0,-40.0,-45, 1);
     hammerNode.drawInfo = {
       bufferLength: hammer.indices.length,
       vertexArray: vaoHammer
@@ -224,13 +333,14 @@ async function main() {
   }
 
   function keyFunction(e){
- 
+      if (isGameStarted != true) return;
       if (e.keyCode == 37) {  // Left arrow
+
         cx-=delta;
       }
       if (e.keyCode == 39) {  // Right arrow
         cx+=delta;
-      } 
+      }
       if (e.keyCode == 38) {  // Up arrow
         cz-=delta;
       }
@@ -243,29 +353,65 @@ async function main() {
       if (e.keyCode == 13) { // Subtract
         cy-=delta;
       }
-      
+
       if (e.keyCode == 65) {  // a
         angle-=delta*10.0;
       }
       if (e.keyCode == 68) {  // d
         angle+=delta*10.0;
-      } 
+      }
       if (e.keyCode == 87) {  // w
         elevation+=delta*10.0;
       }
       if (e.keyCode == 83) {  // s
         elevation-=delta*10.0;
       }
-    
+
+      if (e.keyCode == 49) {  // 1
+
+        animationTrigger("hammer",1);
+      }
+      if (e.keyCode == 50) {  // 1
+
+        animationTrigger("hammer",2);
+      }
+      if (e.keyCode == 51) {  // 1
+
+        animationTrigger("hammer",3);
+      }
+      if (e.keyCode == 52) {  // 1
+
+        animationTrigger("hammer",4);
+      }
+      if (e.keyCode == 53) {  // 1
+
+        animationTrigger("hammer",5);
+      }
       //If you put it here instead, you will redraw the cube only when the camera has been moved
-      window.requestAnimationFrame(drawScene);
+      //window.requestAnimationFrame(drawScene);
   }
 
 
   //// 'window' is a JavaScript object (if "canvas", it will not work)
   window.addEventListener("keyup", keyFunction, false);
+  window.addEventListener('click', event => {
+    if(event.target.closest("#action-button")){
+        if(isGameStarted == true){
+          score = 0;
 
-  window.requestAnimationFrame(drawScene);
+          //animateStatus["mole"]=true;
+          //clearInterval(moleInterval);
+          document.getElementById("score").innerHTML = "0";
+        }
+               //numbers from 1 to 5
+        //next_value=Math.floor(Math.random() * 2);
+        isGameStarted = true;
+        animationTrigger("mole",1);
+        document.getElementById("action-button").innerHTML = "RESTART";
+    }
+  });
+  //window.requestAnimationFrame(drawScene);
+
 
 }
 
@@ -287,7 +433,6 @@ async function loadTexture(url, texture) {
 
   return image;
 }
-
 function getAttributeLocations() {
   //getAttribute location
   // positionAttributeLocation = gl.getAttribLocation(program, "a_position");  
@@ -378,6 +523,7 @@ async function init(){
     await loadShaders();
     
     await main();
+
 }
 
 
