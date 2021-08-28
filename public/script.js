@@ -1,6 +1,11 @@
-var program;
+var program,
+    skyboxProgram;
 var gl;
 var baseDir;
+
+var skyboxVertPos,
+    skyboxVao,
+    skyboxVertPosAttr;
 
 var positionAttributeLocation,
     matrixLocation,
@@ -9,7 +14,9 @@ var positionAttributeLocation,
     materialDiffColorHandle,
     lightDirectionHandle,
     lightColorHandle,
-    normalMatrixPositionHandle;
+    normalMatrixPositionHandle,
+    textureEnv,
+    inverseViewProjMatrixHandle;
 
 var directionalLight,
     directionalLightColor,
@@ -17,11 +24,16 @@ var directionalLight,
 
 var viewMatrix;
 
-var cx = 0.0, cy=3, cz=2.5, angle=0 , elevation=-30.0;
+var drawSceneFunct;
 
 var delta = 0.2;
 
-//example taken from webGLTutorial2
+// Camera Variables
+var lookRadius = 10.0;
+var cx = 0.0, cy=3, cz=2.5, angle=0 , elevation=-30.0;
+
+// Node structure for the scene graph
+// example taken from webGLTutorial2
 var Node = function() {
   this.children = [];
   this.localMatrix = utils.identityMatrix();
@@ -63,11 +75,9 @@ Node.prototype.updateWorldMatrix = function(matrix) {
 
 async function main() {
 
-  var lastUpdateTime = (new Date).getTime();
-
   var materialColor = [0.5, 0.5, 0.5];
 
-
+  //reset canvas 
   utils.resizeCanvasToDisplaySize(gl.canvas);
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
   gl.clearColor(0, 0, 0, 0); 
@@ -82,6 +92,8 @@ async function main() {
   var hammer = await loadObject("assets/hammer.obj");
 
   getAttributeLocations();
+
+  LoadEnvironment();
 
   var perspectiveMatrix = utils.MakePerspective(90, gl.canvas.width/gl.canvas.height, 0.1, 100.0);
 
@@ -106,34 +118,28 @@ async function main() {
 
   function animate(){
     var currentTime = (new Date).getTime();
-    // if(lastUpdateTime){
-    //   var deltaC = (30 * (currentTime - lastUpdateTime)) / 1000.0;
-    //   cameraRx += deltaC;
-    //   cameraRy -= deltaC;
-    //   cameraRz += deltaC;
-    // }
+
+    //camera rotation after mouse interaction
+    angle = angle;// + rvy;
+    elevation = elevation;// + rvx;
+    
+    cz = lookRadius * Math.cos(utils.degToRad(-angle)) * Math.cos(utils.degToRad(-elevation));
+    cx = lookRadius * Math.sin(utils.degToRad(-angle)) * Math.cos(utils.degToRad(-elevation));
+    cy = lookRadius * Math.sin(utils.degToRad(-elevation));
 
     viewMatrix = utils.MakeView(cx, cy, cz, elevation, angle);
-
-    ////
-    // worldMatrix = utils.MakeWorld(  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);
-    // normalMatrix = utils.invertMatrix(utils.transposeMatrix(worldMatrix));
 
     lastUpdateTime = currentTime;               
   }
 
 
-  function drawScene() { //// DRAW THE LIST OF OBJECTS
+  function drawScene() { 
 
-
-    // // //delete these or put them in animate, when you uncomment animate function call
-    // worldMatrix = utils.MakeWorld(  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);
-    // normalMatrix = utils.invertMatrix(utils.transposeMatrix(worldMatrix));
-    // var viewMatrix = utils.MakeView(0.0, 3.0, 2.5, 0, -30.0);
-
+    gl.useProgram(program);
 
     animate();
 
+    //reset canvas
     utils.resizeCanvasToDisplaySize(gl.canvas);
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     gl.clearColor(0, 0, 0, 0);
@@ -141,11 +147,12 @@ async function main() {
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);
 
+    //// DRAW THE LIST OF OBJECTS
     for(var i=0; i<objects.length; i++) {
-      var viewWorldMatrix = utils.multiplyMatrices(viewMatrix, objects[i].localMatrix);
+      var viewWorldMatrix = utils.multiplyMatrices(viewMatrix, objects[i].worldMatrix);
       var projectionMatrix = utils.multiplyMatrices(perspectiveMatrix, viewWorldMatrix);
 
-      var normalMatrix = utils.invertMatrix(utils.transposeMatrix(objects[i].localMatrix));
+      var normalMatrix = utils.invertMatrix(utils.transposeMatrix(objects[i].worldMatrix));
 
       // send projection matrix to shaders
       gl.uniformMatrix4fv(matrixLocation, gl.FALSE, utils.transposeMatrix(projectionMatrix));
@@ -167,34 +174,55 @@ async function main() {
       gl.drawElements(gl.TRIANGLES, objects[i].drawInfo.bufferLength, gl.UNSIGNED_SHORT, 0 );
     }
 
-    // // var viewMatrix = utils.MakeView(0.0, 3.0, 2.5, 0, -30.0);
-    // var viewWorldMatrix = utils.multiplyMatrices(viewMatrix, worldMatrix);
-    // var projectionMatrix = utils.multiplyMatrices(perspectiveMatrix, viewWorldMatrix);
-    
+    DrawSkybox();
+
+    // window.requestAnimationFrame(drawScene);
+
   }
+
+  function DrawSkybox(){
+    //use the program for the skybox
+    gl.useProgram(skyboxProgram);
+    
+    //activate the texture for the environment
+    gl.activeTexture(gl.TEXTURE0+3);
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, skyboxTexture);
+    gl.uniform1i(skyboxTexHandle, 3);
+    
+    //create the inverse of the projection matrix
+    var viewProjMat = utils.multiplyMatrices(perspectiveMatrix, viewMatrix);
+    inverseViewProjMatrix = utils.invertMatrix(viewProjMat);
+    gl.uniformMatrix4fv(inverseViewProjMatrixHandle, gl.FALSE, utils.transposeMatrix(inverseViewProjMatrix));
+    
+    //bind the skybox vertex array
+    gl.bindVertexArray(skyboxVao);
+    //todo: ????
+    gl.depthFunc(gl.LEQUAL);
+    //draw triangles 
+    gl.drawArrays(gl.TRIANGLES, 0, 1*6);
+}
 
   function defineSceneGraph() {
     var objects = [];
 
-    //positions for moles: y=1.0 up; y<0.5 down
-
-
     //cabinet node - root
     var cabinetNode = new Node();
-    cabinetNode.localMatrix = utils.MakeWorld(  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+    cabinetNode.localMatrix = utils.MakeWorld(  0.0, -20.0, -10.0, 0.0, 0.0, 0.0, 10.0);
     cabinetNode.drawInfo = {
       bufferLength: cabinet.indices.length,
       vertexArray: vaoCabinet
     }
     objects.push(cabinetNode);
 
-    var initialX = -1.05;
+    //positions for moles: y=1.0 up; y<0.5 down
+
+    var initialX = -1.0;
     var initialY = 1.0;
     var initialZ = 0.0;
 
     for(i = 0; i<5; i++) {
-      initialZ = (i%2) * 0.5;
-      initialX += 0.7 / 2;
+      initialZ = 0.17 + (i%2) * 0.5;
+      initialX += 0.66 / 2;
 
       var moleNode = new Node();
       moleNode.localMatrix = utils.MakeWorld(initialX, initialY, initialZ, 0.0, 0.0, 0.0, 1.0);
@@ -206,11 +234,10 @@ async function main() {
 
       objects.push(moleNode);
 
-      
     }
 
     var hammerNode = new Node();
-    hammerNode.localMatrix = utils.MakeWorld(  0.5, 1.0, 1.3, 0.0,-20.0,-45, 1);
+    hammerNode.localMatrix = utils.MakeWorld(  0.5, 1.0, 1.3, 0.0,-20.0,-45, 1.0);
     hammerNode.drawInfo = {
       bufferLength: hammer.indices.length,
       vertexArray: vaoHammer
@@ -219,8 +246,10 @@ async function main() {
     hammerNode.setParent(cabinetNode);
     objects.push(hammerNode);
 
-    return objects;
+    //update the world matrices based on the root: cabinet
+    cabinetNode.updateWorldMatrix();
 
+    return objects;
   }
 
   function keyFunction(e){
@@ -237,10 +266,10 @@ async function main() {
       if (e.keyCode == 40) {  // Down arrow
         cz+=delta;
       }
-      if (e.keyCode == 32) { // Add
+      if (e.keyCode == 32) { // Space
         cy+=delta;
       }
-      if (e.keyCode == 13) { // Subtract
+      if (e.keyCode == 13) { // Enter
         cy-=delta;
       }
       
@@ -256,11 +285,11 @@ async function main() {
       if (e.keyCode == 83) {  // s
         elevation-=delta*10.0;
       }
-    
-      //If you put it here instead, you will redraw the cube only when the camera has been moved
+      
       window.requestAnimationFrame(drawScene);
   }
 
+  drawSceneFunct = drawScene;
 
   //// 'window' is a JavaScript object (if "canvas", it will not work)
   window.addEventListener("keyup", keyFunction, false);
@@ -288,11 +317,96 @@ async function loadTexture(url, texture) {
   return image;
 }
 
-function getAttributeLocations() {
+// load the environment map
+function LoadEnvironment() {
+
+  skyboxVertPos = new Float32Array(
+    [
+      -5, -5, 1.0,
+       5, -5, 1.0,
+      -5,  5, 1.0,
+      -5,  5, 1.0,
+       5, -5, 1.0,
+       5,  5, 1.0,
+    ]);
+
+  skyboxVao = gl.createVertexArray();
+  gl.bindVertexArray(skyboxVao);
+  
+  var positionBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, skyboxVertPos, gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(skyboxVertPosAttr);
+  gl.vertexAttribPointer(skyboxVertPosAttr, 3, gl.FLOAT, false, 0, 0);
+  
+  skyboxTexture = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE0+3);
+  gl.bindTexture(gl.TEXTURE_CUBE_MAP, skyboxTexture);
+
+  var baseName = "assets/env/";
+	 
+	const faceInfos = [
+	  {
+	    target: gl.TEXTURE_CUBE_MAP_POSITIVE_X, 
+	    url: baseName+'px.png',
+	  },
+	  {
+	    target: gl.TEXTURE_CUBE_MAP_NEGATIVE_X, 
+	    url: baseName+'nx.png',
+	  },
+	  {
+	    target: gl.TEXTURE_CUBE_MAP_POSITIVE_Y, 
+	    url: baseName+'py.png',
+	  },
+	  {
+	    target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, 
+	    url: baseName+'ny.png',
+	  },
+	  {
+	    target: gl.TEXTURE_CUBE_MAP_POSITIVE_Z, 
+	    url: baseName+'pz.png',
+	  },
+	  {
+	    target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, 
+	    url: baseName+'nz.png',
+	  },
+	];
+	faceInfos.forEach((faceInfo) => {
+    const {target, url} = faceInfo;
+    
+    // Upload the canvas to the cubemap face.
+    const level = 0;
+    const internalFormat = gl.RGBA;
+    const width = 1000;
+    const height = 1000;
+    const format = gl.RGBA;
+    const type = gl.UNSIGNED_BYTE;
+    
+    // setup each face so it's immediately renderable
+    gl.texImage2D(target, level, internalFormat, width, height, 0, format, type, null);
+    
+    // Asynchronously load an image
+    const image = new Image();
+    image.src = url;
+    image.addEventListener('load', function() {
+        // Now that the image has loaded upload it to the texture.
+        gl.activeTexture(gl.TEXTURE0+3);
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, skyboxTexture);
+        gl.texImage2D(target, level, internalFormat, format, type, image);
+        gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+    });
+
+    
+  });
+  gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+  gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+}
+
+function getAttributeLocations() { 
   //getAttribute location
-  // positionAttributeLocation = gl.getAttribLocation(program, "a_position");  
+
+  //for the objects
   uvAttributeLocation = gl.getAttribLocation(program, "a_uv");  
-  // matrixLocation = gl.getUniformLocation(program, "matrix");  
   textLocation = gl.getUniformLocation(program, "u_texture");
   positionAttributeLocation = gl.getAttribLocation(program, "inPosition");  
   normalAttributeLocation = gl.getAttribLocation(program, "inNormal");  
@@ -301,6 +415,15 @@ function getAttributeLocations() {
   lightDirectionHandle = gl.getUniformLocation(program, 'lightDirection');
   lightColorHandle = gl.getUniformLocation(program, 'lightColor');
   normalMatrixPositionHandle = gl.getUniformLocation(program, 'nMatrix');
+
+  //for the skybox
+  //texture
+  skyboxTexHandle = gl.getUniformLocation(skyboxProgram, "u_texture"); 
+  //normal
+  inverseViewProjMatrixHandle = gl.getUniformLocation(skyboxProgram, "inverseViewProjMatrix"); 
+  //position
+  skyboxVertPosAttr = gl.getAttribLocation(skyboxProgram, "in_position");
+
 }
 
 //Create the vertex array that can be used multiple times for drawing the same obj
@@ -350,16 +473,19 @@ async function loadObject(url) {
   return new OBJ.Mesh(objStr);
 }
 
-async function loadShaders() {
+async function loadShaders(vertexShaderName, fragmentShaderName) {
   var shaderDir = "shaders/";
 
-  await utils.loadFiles([shaderDir + 'vs.glsl', shaderDir + 'fs.glsl'], function (shaderText) {
+  var customProgram;
+
+  await utils.loadFiles([shaderDir + vertexShaderName, shaderDir + fragmentShaderName], function (shaderText) {
     var vertexShader = utils.createShader(gl, gl.VERTEX_SHADER, shaderText[0]);
     var fragmentShader = utils.createShader(gl, gl.FRAGMENT_SHADER, shaderText[1]);
-    program = utils.createProgram(gl, vertexShader, fragmentShader);
+    customProgram = utils.createProgram(gl, vertexShader, fragmentShader);
 
   });
-  gl.useProgram(program);
+
+  return customProgram;
 }
 
 function setupCanvas() {
@@ -369,18 +495,51 @@ function setupCanvas() {
       document.write("GL context not opened");
       return;
   }
+  utils.resizeCanvasToDisplaySize(gl.canvas);
+
+  canvas.addEventListener("mousedown", doMouseDown, false);
+  canvas.addEventListener("mouseup", doMouseUp, false);
+  canvas.addEventListener("mousemove", doMouseMove, false);
+
 }
 
 async function init(){
   
     setupCanvas();
-
-    await loadShaders();
+    
+    skyboxProgram = await loadShaders('skybox_vs.glsl', 'skybox_fs.glsl');
+    program = await loadShaders('vs.glsl', 'fs.glsl');
     
     await main();
 }
 
+var mouseState = false;
+var lastMouseX = -100, lastMouseY = -100;
+function doMouseDown(event) {
+	lastMouseX = event.pageX;
+	lastMouseY = event.pageY;
+	mouseState = true;
+}
+function doMouseUp(event) {
+	lastMouseX = -100;
+	lastMouseY = -100;
+	mouseState = false;
+}
+function doMouseMove(event) {
+	if(mouseState) {
+		var dx = event.pageX - lastMouseX;
+		var dy = lastMouseY - event.pageY;
+		lastMouseX = event.pageX;
+		lastMouseY = event.pageY;
+		
+		if((dx != 0) || (dy != 0)) {
+			angle = angle + 0.5 * dx;
+			elevation = elevation + 0.5 * dy;
+		}
+    window.requestAnimationFrame(drawSceneFunct);
 
+	}
+}
 
 
 window.onload = init;
