@@ -24,18 +24,21 @@ var directionalLight,
 
 // lights
 var 
-    // lightDirL,
-    // lightDirR, 
-    // lightDirS, 
     lightColorL = [0.3, 0.3, 0.3],
-    lightColorR = [0.1, 1.0, 1.0],
+    lightColorR = [0.3, 0.3, 0.3],
     lightColorS = [0.1, 1.0, 1.0],
-    lightPositionL = [-20.0, 20.0, 20.0],
-    lightPositionR = [5.0, 1.5, 2.0],
+    lightPositionL = [-15.0, 20.0, 20.0], //left light
+    lightPositionR = [15.0, 20.0, 20.0],  //right light
     lightPositionS = [0.0, 1.5, 2.0],
     lTarget = 60 , 
-    lDecay = 2,
-    specShine;
+    lDecay = 1.3,
+    specShine = 200,
+    lightDirTS = 45, //tetha for computing direction of light S
+    lightDirPS = 0;  //phi for computing direction of light S
+    //direction of light S: (spotlight)
+    lightDirS = [Math.sin(lightDirTS)*Math.sin(lightDirPS), Math.cos(lightDirTS), Math.sin(lightDirTS)*Math.cos(lightDirPS)],
+    lConeOut = 30,
+    lConeIn = 80;
 
 var viewMatrix;
 
@@ -46,6 +49,7 @@ var delta = 0.2;
 // Camera Variables
 var lookRadius = 10.0;
 var cx = 0.0, cy=3, cz=2.5, angle=0 , elevation=-30.0;
+var eyePos = [cx,cy,cz];
 
 // Node structure for the scene graph
 // example taken from webGLTutorial2
@@ -146,6 +150,13 @@ async function main() {
     gl.uniform1f(lTargetLocation, lTarget);
     gl.uniform1f(lDecayLocation, lDecay);
     gl.uniform1f(specShineLocation, specShine);
+
+    
+    gl.uniform3fv(lightDirSLocation,lightDirS);
+    gl.uniform3fv(eyePositionLocation, eyePos);
+
+    gl.uniform1f(lConeOutLocation, lConeOut);
+    gl.uniform1f(lConeInLocation, lConeIn);
   }
 
   function animate(){
@@ -459,7 +470,7 @@ function getAttributeLocations() {
   // //Directions
   // lightDirLLocation = gl.getUniformLocation(program,"lightDirL");
   // lightDirLLocation = gl.getUniformLocation(program,"lightDirR");
-  // lightDirLLocation = gl.getUniformLocation(program,"lightDirS");
+  lightDirSLocation = gl.getUniformLocation(program,"lightDirS");
 
   //Color(intensity)
   lightColorLLocation = gl.getUniformLocation(program,"lightColorL");
@@ -474,6 +485,10 @@ function getAttributeLocations() {
   lTargetLocation = gl.getUniformLocation(program,"LTarget"); //point light target
   lDecayLocation = gl.getUniformLocation(program,"LDecay"); //point light decay
   specShineLocation = gl.getUniformLocation(program,"SpecShine");
+
+  eyePositionLocation = gl.getUniformLocation(program,"eyePos"); //camera position
+  lConeOutLocation = gl.getUniformLocation(program,"lConeOut");
+  lConeInLocation = gl.getUniformLocation(program,"lConeIn");
 
 }
 
