@@ -125,6 +125,8 @@ async function main() {
 
   var materialColor = [0.5, 0.5, 0.5];
 
+  defineDirectionalLight();
+
   //load models
   var cabinet = await loadObject("assets/cabinet.obj");
   var mole = await loadObject("assets/mole.obj");
