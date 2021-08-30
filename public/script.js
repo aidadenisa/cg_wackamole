@@ -22,6 +22,21 @@ var directionalLight,
     directionalLightColor,
     materialColor;
 
+// lights
+var 
+    // lightDirL,
+    // lightDirR, 
+    // lightDirS, 
+    lightColorL = [0.3, 0.3, 0.3],
+    lightColorR = [0.1, 1.0, 1.0],
+    lightColorS = [0.1, 1.0, 1.0],
+    lightPositionL = [-20.0, 20.0, 20.0],
+    lightPositionR = [5.0, 1.5, 2.0],
+    lightPositionS = [0.0, 1.5, 2.0],
+    lTarget = 60 , 
+    lDecay = 2,
+    specShine;
+
 var viewMatrix;
 
 var drawSceneFunct;
@@ -116,6 +131,23 @@ async function main() {
 
   drawScene();
 
+  function setLightsConfiguration() {
+
+    //Color(intensity)
+    gl.uniform3fv(lightColorLLocation, lightColorL);
+    gl.uniform3fv(lightColorRLocation, lightColorR);
+    gl.uniform3fv(lightColorSLocation, lightColorS);
+
+    //Light Positions
+    gl.uniform3fv(lightPositionLLocation, lightPositionL);
+    gl.uniform3fv(lightPositionRLocation, lightPositionR);
+    gl.uniform3fv(lightPositionSLocation, lightPositionS);
+
+    gl.uniform1f(lTargetLocation, lTarget);
+    gl.uniform1f(lDecayLocation, lDecay);
+    gl.uniform1f(specShineLocation, specShine);
+  }
+
   function animate(){
     var currentTime = (new Date).getTime();
 
@@ -132,7 +164,6 @@ async function main() {
     lastUpdateTime = currentTime;               
   }
 
-
   function drawScene() { 
 
     gl.useProgram(program);
@@ -146,6 +177,8 @@ async function main() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);
+
+    setLightsConfiguration();
 
     //// DRAW THE LIST OF OBJECTS
     for(var i=0; i<objects.length; i++) {
@@ -406,23 +439,41 @@ function getAttributeLocations() {
   //getAttribute location
 
   //for the objects
-  uvAttributeLocation = gl.getAttribLocation(program, "a_uv");  
-  textLocation = gl.getUniformLocation(program, "u_texture");
   positionAttributeLocation = gl.getAttribLocation(program, "inPosition");  
-  normalAttributeLocation = gl.getAttribLocation(program, "inNormal");  
-  matrixLocation = gl.getUniformLocation(program, "matrix");
+  normalAttributeLocation = gl.getAttribLocation(program, "inNormal"); 
+  matrixLocation = gl.getUniformLocation(program, "matrix");  //projection matrix
+  normalMatrixPositionHandle = gl.getUniformLocation(program, 'nMatrix'); //normal matrix
+  uvAttributeLocation = gl.getAttribLocation(program, "a_uv");  //uv indices
+  textLocation = gl.getUniformLocation(program, "u_texture");   //texture 
+  
   materialDiffColorHandle = gl.getUniformLocation(program, 'mDiffColor');
   lightDirectionHandle = gl.getUniformLocation(program, 'lightDirection');
   lightColorHandle = gl.getUniformLocation(program, 'lightColor');
-  normalMatrixPositionHandle = gl.getUniformLocation(program, 'nMatrix');
 
   //for the skybox
-  //texture
-  skyboxTexHandle = gl.getUniformLocation(skyboxProgram, "u_texture"); 
-  //normal
-  inverseViewProjMatrixHandle = gl.getUniformLocation(skyboxProgram, "inverseViewProjMatrix"); 
-  //position
-  skyboxVertPosAttr = gl.getAttribLocation(skyboxProgram, "in_position");
+  skyboxTexHandle = gl.getUniformLocation(skyboxProgram, "u_texture");  //texture
+  inverseViewProjMatrixHandle = gl.getUniformLocation(skyboxProgram, "inverseViewProjMatrix"); //normal 
+  skyboxVertPosAttr = gl.getAttribLocation(skyboxProgram, "in_position"); //position
+
+  //for LIGHTS
+  // //Directions
+  // lightDirLLocation = gl.getUniformLocation(program,"lightDirL");
+  // lightDirLLocation = gl.getUniformLocation(program,"lightDirR");
+  // lightDirLLocation = gl.getUniformLocation(program,"lightDirS");
+
+  //Color(intensity)
+  lightColorLLocation = gl.getUniformLocation(program,"lightColorL");
+  lightColorRLocation = gl.getUniformLocation(program,"lightColorR");
+  lightColorSLocation = gl.getUniformLocation(program,"lightColorS");
+
+  //Light Positions
+  lightPositionLLocation = gl.getUniformLocation(program,"lightPositionL"); //point light position
+  lightPositionRLocation = gl.getUniformLocation(program,"lightPositionR"); //point light position
+  lightPositionSLocation = gl.getUniformLocation(program,"lightPositionS"); //spot light position
+
+  lTargetLocation = gl.getUniformLocation(program,"LTarget"); //point light target
+  lDecayLocation = gl.getUniformLocation(program,"LDecay"); //point light decay
+  specShineLocation = gl.getUniformLocation(program,"SpecShine");
 
 }
 
