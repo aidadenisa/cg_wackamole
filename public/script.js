@@ -6,6 +6,19 @@ var baseDir;
 var skyboxVertPos,
     skyboxVao,
     skyboxVertPosAttr;
+    
+var animateIndicator = {}; //indicating active animations of hammers or moles
+var animateFrameRate = 30; //frame rate of screen
+var moveHammerAnimTimeAsSec = 0.3; //animation duration as sec
+var hammerRotation = -40; //currently hammer rotation
+var hammerStepRotation; //angular change in each frame rate step
+var animateStepIndicator = {"mole":0,"hammer":0}; //holding currently frame rate steps
+var animatingMoles={"1":false,"2":false,"3":false,"4":false,"5":false}; //mole is visible or not
+var currentAnimatingMole;
+var animationMovementCoordinates = {"mole":{"x":0,"y":0,"z":0},"hammer":{"x":0,"y":0,"z":0}}; //target coordinates of animation
+var animateStatus = {}; //status of animation trigger
+var isGameStarted = false;
+var score=0; //holding score
 
 var positionAttributeLocation,
     matrixLocation,
@@ -40,9 +53,16 @@ var
     lConeOut = 30,
     lConeIn = 80;
 
-var viewMatrix;
 
 var drawSceneFunct;
+
+var directionalLight,
+    directionalLightColor,
+    materialColor;
+    
+var lastUpdateTime=(new Date).getTime();
+
+var viewMatrix;
 
 var delta = 0.2;
 
@@ -94,14 +114,16 @@ Node.prototype.updateWorldMatrix = function(matrix) {
 
 async function main() {
 
-  var materialColor = [0.5, 0.5, 0.5];
-
   //reset canvas 
+  var lastUpdateTime = (new Date).getTime();
+
   utils.resizeCanvasToDisplaySize(gl.canvas);
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-  gl.clearColor(0, 0, 0, 0); 
+  gl.clearColor(0, 0, 0, 0);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.enable(gl.DEPTH_TEST);
+
+  var materialColor = [0.5, 0.5, 0.5];
 
   defineDirectionalLight();
 
@@ -160,7 +182,7 @@ async function main() {
   }
 
   function animate(){
-    var currentTime = (new Date).getTime();
+    // var currentTime = (new Date).getTime();
 
     //camera rotation after mouse interaction
     angle = angle;// + rvy;
@@ -172,7 +194,7 @@ async function main() {
 
     viewMatrix = utils.MakeView(cx, cy, cz, elevation, angle);
 
-    lastUpdateTime = currentTime;               
+    // lastUpdateTime = currentTime;               
   }
 
   function drawScene() { 
@@ -180,6 +202,10 @@ async function main() {
     gl.useProgram(program);
 
     animate();
+    
+   //// DRAW THE LIST OF OBJECTS
+
+    //  viewMatrix = utils.MakeView(cx, cy, cz, elevation, angle); //we set it in animate
 
     //reset canvas
     utils.resizeCanvasToDisplaySize(gl.canvas);
@@ -209,7 +235,7 @@ async function main() {
       gl.uniform3fv(lightColorHandle,  directionalLightColor);
       gl.uniform3fv(lightDirectionHandle,  directionalLight);
 
-        //BIND TEXTURE
+      //BIND TEXTURE
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, texture);
       gl.uniform1i(textLocation, 0);
@@ -220,8 +246,84 @@ async function main() {
 
     DrawSkybox();
 
-    // window.requestAnimationFrame(drawScene);
+    //question: why is the animate here, AFTER drawing each object?
+    mainAnimate();
+    window.requestAnimationFrame(drawScene);
+  }
 
+  
+
+  function moveMole(){ // function for movement of moles
+    if(animateStepIndicator["mole"] == 0){ // checking mole movements is started
+      var randomer =Math.floor(Math.random() * 5) + 1;
+      animatingMoles[randomer] = !animatingMoles[randomer];
+      currentAnimatingMole = randomer;
+    }
+    if(animatingMoles[currentAnimatingMole]){ // mole is visible
+      objects[currentAnimatingMole].localMatrix[7]+=((0.85-0)/(animateFrameRate*moveHammerAnimTimeAsSec)); // mole moving to visible side
+    }else{
+      objects[currentAnimatingMole].localMatrix[7]-=((0.85-0)/(animateFrameRate*moveHammerAnimTimeAsSec));
+    }
+    if(animateStepIndicator["mole"] == animateFrameRate*moveHammerAnimTimeAsSec){ // movement is done
+      animateStepIndicator["mole"] = -1;
+    }
+    animateStepIndicator["mole"]++;
+  }
+  function mainAnimate(){ // main animate function calling every frame of screen
+    if(animateStatus["hammer"] == true){
+      moveHammer();
+    }
+    if(animateStatus["mole"] == true){
+      moveMole();
+    }
+  }
+  function animationTrigger(type,i){ // change animation statuses of moles and hammer
+    if(type=="hammer"){
+        animateStatus["hammer"] = true;
+        animateIndicator["hammer"] = i;
+        animateStepIndicator["hammer"] = 0;
+    }else if(type=="mole"){
+        animateStatus["mole"] = true;
+        animateIndicator["mole"] = i;
+        animateStepIndicator["mole"] = 0;
+    }
+  }
+  function moveHammer(){ // animation hammer
+    world=objects[6].localMatrix;
+
+    if(animateStepIndicator["hammer"] == 0){ // beginning of movement
+      hammerStepRotation = (-80-(hammerRotation))/(animateFrameRate*moveHammerAnimTimeAsSec); // calculating rotation degree foreach frame
+      animationMovementCoordinates["hammer"]["x"] = (objects[animateIndicator["hammer"]].localMatrix[3]-world[3])/(animateFrameRate*moveHammerAnimTimeAsSec); // calculating translation foreach frame
+      animationMovementCoordinates["hammer"]["y"] = (1-world[7])/(animateFrameRate*moveHammerAnimTimeAsSec);
+      animationMovementCoordinates["hammer"]["z"] = (objects[animateIndicator["hammer"]].localMatrix[11]-world[11])/(animateFrameRate*moveHammerAnimTimeAsSec);
+    }else if(animateStepIndicator["hammer"] == animateFrameRate*moveHammerAnimTimeAsSec){ // moving to mole is done
+      if(objects[animateIndicator["hammer"]].localMatrix[7] > 0.5){ // mole is visible, animateIndicator["hammer"] indicates the number of mole
+        score++;
+        document.getElementById("score").innerHTML = score;
+        if(currentAnimatingMole == animateIndicator["hammer"]){
+          animateStepIndicator["mole"] = 0;
+        }
+        objects[animateIndicator["hammer"]].localMatrix[7] = 0; // forces to mole down
+        animatingMoles[animateIndicator["hammer"]] = false;
+      }
+      hammerStepRotation = (-40-(hammerRotation))/(animateFrameRate*moveHammerAnimTimeAsSec); // calculating rotation degree for reverse path
+      animationMovementCoordinates["hammer"]["x"]=(0.7-world[3])/(animateFrameRate*moveHammerAnimTimeAsSec);
+      animationMovementCoordinates["hammer"]["y"]=(1.5-world[7])/(animateFrameRate*moveHammerAnimTimeAsSec);
+      animationMovementCoordinates["hammer"]["z"]=(1.3-world[11])/(animateFrameRate*moveHammerAnimTimeAsSec);
+    }
+
+    world[3]+=animationMovementCoordinates["hammer"]["x"];
+    world[7]+=animationMovementCoordinates["hammer"]["y"];
+    world[11]+=animationMovementCoordinates["hammer"]["z"];
+
+    if(animateStepIndicator["hammer"] == animateFrameRate*moveHammerAnimTimeAsSec*2) animateStatus["hammer"] = false; // when the movement is done, change animatestatus of hammer to false
+    hammerRotation += hammerStepRotation; // updating hammer rotating in each steps
+    rotate=utils.MakeRotateXMatrix(hammerStepRotation); //rotation calcs
+    itrans=utils.multiplyMatrices(rotate,utils.invertMatrix(utils.MakeTranslateMatrix(world[3],world[7],world[11])));
+    trans=utils.multiplyMatrices(utils.MakeTranslateMatrix(world[3],world[7],world[11]),itrans);
+    world=utils.multiplyMatrices(trans,world);
+    objects[6].localMatrix=world; // assigning of hammer localmatrix to the new matrix
+    animateStepIndicator["hammer"]++;
   }
 
   function DrawSkybox(){
@@ -261,13 +363,19 @@ async function main() {
     //positions for moles: y=1.0 up; y<0.5 down
 
     var initialX = -1.0;
-    var initialY = 1.0;
+    var initialY = 0.0;
     var initialZ = 0.0;
 
-    for(i = 0; i<5; i++) {
+    //var initialX = -0.965;
+    //var initialY = 0.0;
+    //var initialZ = 0.0;
+
+    for(i = 0; i<5; i++)
+    {
+      // var initialZ = ((i%2) * 0.455)+0.2;
+      // initialX += 0.32;
       initialZ = 0.17 + (i%2) * 0.5;
       initialX += 0.66 / 2;
-
       var moleNode = new Node();
       moleNode.localMatrix = utils.MakeWorld(initialX, initialY, initialZ, 0.0, 0.0, 0.0, 1.0);
       moleNode.drawInfo = {
@@ -275,18 +383,15 @@ async function main() {
         vertexArray: vaoMole
       }
       moleNode.setParent(cabinetNode);
-
       objects.push(moleNode);
-
     }
-
     var hammerNode = new Node();
     hammerNode.localMatrix = utils.MakeWorld(  0.5, 1.0, 1.3, 0.0,-20.0,-45, 1.0);
+    // hammerNode.localMatrix = utils.MakeWorld(0.7, 1.5, 1.3, 0.0,-40.0,-45, 1);
     hammerNode.drawInfo = {
       bufferLength: hammer.indices.length,
       vertexArray: vaoHammer
     }
-
     hammerNode.setParent(cabinetNode);
     objects.push(hammerNode);
 
@@ -297,67 +402,89 @@ async function main() {
   }
 
   function keyFunction(e){
- 
-      if (e.keyCode == 37) {  // Left arrow
-        cx-=delta;
-      }
-      if (e.keyCode == 39) {  // Right arrow
-        cx+=delta;
-      } 
-      if (e.keyCode == 38) {  // Up arrow
-        cz-=delta;
-      }
-      if (e.keyCode == 40) {  // Down arrow
-        cz+=delta;
-      }
-      if (e.keyCode == 32) { // Space
-        cy+=delta;
-      }
-      if (e.keyCode == 13) { // Enter
-        cy-=delta;
-      }
-      
-      if (e.keyCode == 65) {  // a
-        angle-=delta*10.0;
-      }
-      if (e.keyCode == 68) {  // d
-        angle+=delta*10.0;
-      } 
-      if (e.keyCode == 87) {  // w
-        elevation+=delta*10.0;
-      }
-      if (e.keyCode == 83) {  // s
-        elevation-=delta*10.0;
-      }
-      
-      window.requestAnimationFrame(drawScene);
+    if (isGameStarted != true) return;
+    if (e.keyCode == 37) {  // Left arrow
+      cx-=delta;
+    }
+    else if (e.keyCode == 39) {  // Right arrow
+      cx+=delta;
+    }
+    else if (e.keyCode == 38) {  // Up arrow
+      cz-=delta;
+    }
+    else if (e.keyCode == 40) {  // Down arrow
+      cz+=delta;
+    }
+    if (e.keyCode == 32) { // Space
+      cy+=delta;
+    }
+    if (e.keyCode == 13) { // Enter
+      cy-=delta;
+    }
+    else if (e.keyCode == 65) {  // a
+      angle-=delta*10.0;
+    }
+    else if (e.keyCode == 68) {  // d
+      angle+=delta*10.0;
+    }
+    else if (e.keyCode == 87) {  // w
+      elevation+=delta*10.0;
+    }
+    else if (e.keyCode == 83) {  // s
+      elevation-=delta*10.0;
+    }
+    else if (e.keyCode == 49) {  // 1
+      animationTrigger("hammer",1); // hammer animation trigger to mole 1
+    }
+    else if (e.keyCode == 50) {  // 2
+      animationTrigger("hammer",2);
+    }
+    else if (e.keyCode == 51) {  // 3
+      animationTrigger("hammer",3);
+    }
+    else if (e.keyCode == 52) {  // 4
+      animationTrigger("hammer",4);
+    }
+    else if (e.keyCode == 53) {  // 5
+      animationTrigger("hammer",5);
+    }
+    //If you put it here instead, you will redraw the cube only when the camera has been moved
+    //window.requestAnimationFrame(drawScene);
+
+    window.requestAnimationFrame(drawScene);
   }
+  
+drawSceneFunct = drawScene;
+  
+//// 'window' is a JavaScript object (if "canvas", it will not work)
+window.addEventListener("keyup", keyFunction, false);
 
-  drawSceneFunct = drawScene;
-
-  //// 'window' is a JavaScript object (if "canvas", it will not work)
-  window.addEventListener("keyup", keyFunction, false);
-
-  window.requestAnimationFrame(drawScene);
-
+window.addEventListener('click', event => { // game is starting and restarting after click
+    if(event.target.closest("#action-button")){
+        if(isGameStarted == true){
+          score = 0;
+          document.getElementById("score").innerHTML = "0";
+        }else{
+          isGameStarted = true;
+          animationTrigger("mole",1);
+          document.getElementById("action-button").innerHTML = "RESTART";
+        }
+    }
+  });
 }
 
 async function loadTexture(url, texture) {
   var image = new Image();
   image.src = url;
-
   await image.decode();
   //Make sure this is the active one
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-        
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-
   gl.generateMipmap(gl.TEXTURE_2D);
-
   return image;
 }
 
@@ -517,13 +644,13 @@ function createVAO(obj) {
 
   var indexBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(obj.indices), gl.STATIC_DRAW); 
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(obj.indices), gl.STATIC_DRAW);
 
   return vao;
 }
 
 function defineDirectionalLight() {
-  //define directional light  
+  //define directional light
   var dirLightAlpha = -utils.degToRad(60);
   var dirLightBeta  = -utils.degToRad(120);
 
@@ -570,7 +697,6 @@ function setupCanvas() {
 }
 
 async function init(){
-  
     setupCanvas();
     
     skyboxProgram = await loadShaders('skybox_vs.glsl', 'skybox_fs.glsl');
@@ -606,6 +732,5 @@ function doMouseMove(event) {
 
 	}
 }
-
 
 window.onload = init;
