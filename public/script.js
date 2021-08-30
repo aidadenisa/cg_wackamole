@@ -67,7 +67,7 @@ var viewMatrix;
 var delta = 0.2;
 
 // Camera Variables
-var lookRadius = 20.0;
+var lookRadius = 15.0;
 var cx = 0.0, cy=3, cz=2.5, angle=0 , elevation=-30.0;
 var eyePos = [cx,cy,cz];
 
@@ -125,8 +125,6 @@ async function main() {
 
   var materialColor = [0.5, 0.5, 0.5];
 
-  defineDirectionalLight();
-
   //load models
   var cabinet = await loadObject("assets/cabinet.obj");
   var mole = await loadObject("assets/mole.obj");
@@ -182,31 +180,13 @@ async function main() {
     gl.uniform1f(lConeInLocation, lConeIn);
   }
 
-  function animate(){
-    // var currentTime = (new Date).getTime();
-
-    //camera rotation after mouse interaction
-    angle = angle;// + rvy;
-    elevation = elevation;// + rvx;
-
-    cz = lookRadius * Math.cos(utils.degToRad(-angle)) * Math.cos(utils.degToRad(-elevation));
-    cx = lookRadius * Math.sin(utils.degToRad(-angle)) * Math.cos(utils.degToRad(-elevation));
-    cy = lookRadius * Math.sin(utils.degToRad(-elevation));
-
-    viewMatrix = utils.MakeView(cx, cy, cz, elevation, angle);
-
-    // lastUpdateTime = currentTime;
-  }
-
   function drawScene() {
 
     gl.useProgram(program);
 
     animate();
 
-   //// DRAW THE LIST OF OBJECTS
-
-    //  viewMatrix = utils.MakeView(cx, cy, cz, elevation, angle); //we set it in animate
+    mainAnimate();
 
     //reset canvas
     utils.resizeCanvasToDisplaySize(gl.canvas);
@@ -247,12 +227,25 @@ async function main() {
 
     DrawSkybox();
 
-    //question: why is the animate here, AFTER drawing each object?
-    mainAnimate();
     window.requestAnimationFrame(drawScene);
   }
 
 
+  function animate(){
+    // var currentTime = (new Date).getTime();
+
+    //camera rotation after mouse interaction
+    angle = angle;// + rvy;
+    elevation = elevation;// + rvx;
+
+    cz = lookRadius * Math.cos(utils.degToRad(-angle)) * Math.cos(utils.degToRad(-elevation));
+    cx = lookRadius * Math.sin(utils.degToRad(-angle)) * Math.cos(utils.degToRad(-elevation));
+    cy = lookRadius * Math.sin(utils.degToRad(-elevation));
+
+    viewMatrix = utils.MakeView(cx, cy, cz, elevation, angle);
+
+    // lastUpdateTime = currentTime;
+  }
 
   function moveMole(){ // function for movement of moles
     if(animateStepIndicator["mole"] == 0){ // checking mole movements is started
@@ -363,20 +356,13 @@ async function main() {
     }
     objects.push(cabinetNode);
 
+    //mole nodes
     //positions for moles: y=1.0 up; y<0.5 down
-
     var initialX = -1.0;
     var initialY = 0.0;
     var initialZ = 0.0;
 
-    //var initialX = -0.965;
-    //var initialY = 0.0;
-    //var initialZ = 0.0;
-
-    for(i = 0; i<5; i++)
-    {
-      // var initialZ = ((i%2) * 0.455)+0.2;
-      // initialX += 0.32;
+    for(i = 0; i<5; i++) {
       initialZ = 0.17 + (i%2) * 0.5;
       initialX += 0.66 / 2;
       var moleNode = new Node();
@@ -388,9 +374,10 @@ async function main() {
       moleNode.setParent(cabinetNode);
       objects.push(moleNode);
     }
+
+    //hammer node
     var hammerNode = new Node();
-   // hammerNode.localMatrix = utils.MakeWorld(0.5, 1.0, 1.3, 0.0,-20.0,-45, 1.0);
-      hammerNode.localMatrix = utils.MakeWorld(0.8, 1.6, 1.3, 0.0,-40.0,-45, 1);
+    hammerNode.localMatrix = utils.MakeWorld(0.8, 1.6, 1.3, 0.0,-40.0,-45, 1);
     hammerNode.drawInfo = {
       bufferLength: hammer.indices.length,
       vertexArray: vaoHammer
@@ -405,26 +392,8 @@ async function main() {
   }
 
   function keyFunction(e){
-    if (isGameStarted != true) return;
-    if (e.keyCode == 37) {  // Left arrow
-      cx-=delta;
-    }
-    else if (e.keyCode == 39) {  // Right arrow
-      cx+=delta;
-    }
-    else if (e.keyCode == 38) {  // Up arrow
-      cz-=delta;
-    }
-    else if (e.keyCode == 40) {  // Down arrow
-      cz+=delta;
-    }
-    if (e.keyCode == 32) { // Space
-      cy+=delta;
-    }
-    if (e.keyCode == 13) { // Enter
-      cy-=delta;
-    }
-    else if (e.keyCode == 65) {  // a
+
+    if (e.keyCode == 65) {  // a
       angle-=delta*10.0;
     }
     else if (e.keyCode == 68) {  // d
@@ -435,6 +404,9 @@ async function main() {
     }
     else if (e.keyCode == 83) {  // s
       elevation-=delta*10.0;
+    }
+    else if (isGameStarted != true) { //return if the game is not started
+      return;
     }
     else if (e.keyCode == 49) {  // 1
       animationTrigger("hammer",1); // hammer animation trigger to mole 1
@@ -451,29 +423,22 @@ async function main() {
     else if (e.keyCode == 53) {  // 5
       animationTrigger("hammer",5);
     }
-    //If you put it here instead, you will redraw the cube only when the camera has been moved
-    //window.requestAnimationFrame(drawScene);
-
-    //window.requestAnimationFrame(drawScene);
   }
 
-//drawSceneFunct = drawScene;
+  window.addEventListener("keyup", keyFunction, false);
 
-//// 'window' is a JavaScript object (if "canvas", it will not work)
-window.addEventListener("keyup", keyFunction, false);
-
-window.addEventListener('click', event => { // game is starting and restarting after click
-    if(event.target.closest("#action-button")){
-        if(isGameStarted == true){
-          score = 0;
-          document.getElementById("score").innerHTML = "0";
-        }else{
-          isGameStarted = true;
-          animationTrigger("mole",1);
-          document.getElementById("action-button").innerHTML = "RESTART";
-        }
-    }
-  });
+  window.addEventListener('click', event => { // game is starting and restarting after click
+      if(event.target.closest("#action-button")){
+          if(isGameStarted == true){
+            score = 0;
+            document.getElementById("score").innerHTML = "0";
+          }else{
+            isGameStarted = true;
+            animationTrigger("mole",1);
+            document.getElementById("action-button").innerHTML = "RESTART";
+          }
+      }
+    });
 }
 
 async function loadTexture(url, texture) {
@@ -598,8 +563,6 @@ function getAttributeLocations() {
 
   //for LIGHTS
   // //Directions
-  // lightDirLLocation = gl.getUniformLocation(program,"lightDirL");
-  // lightDirLLocation = gl.getUniformLocation(program,"lightDirR");
   lightDirSLocation = gl.getUniformLocation(program,"lightDirS");
 
   //Color(intensity)
@@ -699,15 +662,6 @@ function setupCanvas() {
 
 }
 
-async function init(){
-    setupCanvas();
-
-    skyboxProgram = await loadShaders('skybox_vs.glsl', 'skybox_fs.glsl');
-    program = await loadShaders('vs.glsl', 'fs.glsl');
-
-    await main();
-}
-
 var mouseState = false;
 var lastMouseX = -100, lastMouseY = -100;
 function doMouseDown(event) {
@@ -731,9 +685,16 @@ function doMouseMove(event) {
 			angle = angle + 0.5 * dx;
 			elevation = elevation + 0.5 * dy;
 		}
-    //window.requestAnimationFrame(drawSceneFunct);
-
 	}
+}
+
+async function init(){
+  setupCanvas();
+
+  skyboxProgram = await loadShaders('skybox_vs.glsl', 'skybox_fs.glsl');
+  program = await loadShaders('vs.glsl', 'fs.glsl');
+
+  await main();
 }
 
 window.onload = init;
