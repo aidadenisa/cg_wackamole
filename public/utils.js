@@ -23,7 +23,7 @@ createShader:function(gl, type, source) {
   if (success) {    
     return shader;
   }else{
-    console.log(gl.getShaderInfoLog(shader));  // eslint-disable-line
+    //console.log(gl.getShaderInfoLog(shader));  // eslint-disable-line
     if(type == gl.VERTEX_SHADER){
     	alert("ERROR IN VERTEX SHADER : " + gl.getShaderInfoLog(vertexShader));
     }
@@ -46,7 +46,7 @@ createProgram:function(gl, vertexShader, fragmentShader) {
     return program;
   }else{
      throw ("program filed to link:" + gl.getProgramInfoLog (program));
-    console.log(gl.getProgramInfoLog(program));  // eslint-disable-line
+   // console.log(gl.getProgramInfoLog(program));  // eslint-disable-line
     gl.deleteProgram(program);
     return undefined;
   }
@@ -56,7 +56,7 @@ createProgram:function(gl, vertexShader, fragmentShader) {
     const expandFullScreen = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
-      console.log(canvas.width+" "+window.innerWidth);
+     // console.log(canvas.width+" "+window.innerWidth);
         
     };
     expandFullScreen();
