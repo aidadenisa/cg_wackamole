@@ -408,6 +408,7 @@ async function main() {
   function reset(){
     for(var i=1;i<6;i++){
       objects[i].worldMatrix[7] = -20;
+      animatingMoles[i] = false;
     }
     //objects[6].localMatrix = utils.MakeWorld(0.8, 1.6, 1.3, 0.0,-40.0,-45, 1);
   }
