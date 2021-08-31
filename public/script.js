@@ -19,7 +19,8 @@ var animationMovementCoordinates = {"mole":{"x":0,"y":0,"z":0},"hammer":{"x":0,"
 var animateStatus = {}; //status of animation trigger
 var isGameStarted = false;
 var score=0; //holding score
-
+var timer=120;
+var timerInterval;
 var positionAttributeLocation,
     matrixLocation,
     textLocation,
@@ -111,7 +112,19 @@ Node.prototype.updateWorldMatrix = function(matrix) {
   });
 };
 
+function min(){
 
+  var min = Math.floor(timer/60);
+  var sec = timer%60;
+  if(min<10) min = "0"+min.toString();
+  if(sec<10) sec = "0"+sec.toString();
+  document.getElementById("timer").innerHTML = min.toString()+":"+sec.toString();
+  if(timer == 0){
+    isGameStarted = false;
+    if(timerInterval != null)clearInterval(timerInterval);
+  }
+  timer--;
+}
 async function main() {
 
   //reset canvas
@@ -268,10 +281,10 @@ async function main() {
     animateStepIndicator["mole"]++;
   }
   function mainAnimate(){ // main animate function calling every frame of screen
-    if(animateStatus["hammer"] == true){
+    if(animateStatus["hammer"] == true && isGameStarted == true){
       moveHammer();
     }
-    if(animateStatus["mole"] == true){
+    if(animateStatus["mole"] == true && isGameStarted == true){
       moveMole();
     }
   }
@@ -392,7 +405,12 @@ async function main() {
 
     return objects;
   }
-
+  function reset(){
+    for(var i=1;i<6;i++){
+      objects[i].worldMatrix[7] = -20;
+    }
+    //objects[6].localMatrix = utils.MakeWorld(0.8, 1.6, 1.3, 0.0,-40.0,-45, 1);
+  }
   function keyFunction(e){
 
     if (e.keyCode == 65) {  // a
@@ -431,14 +449,15 @@ async function main() {
 
   window.addEventListener('click', event => { // game is starting and restarting after click
       if(event.target.closest("#action-button")){
-          if(isGameStarted == true){
-            score = 0;
-            document.getElementById("score").innerHTML = "0";
-          }else{
-            isGameStarted = true;
-            animationTrigger("mole",1);
-            document.getElementById("action-button").innerHTML = "RESTART";
-          }
+          timer = 120;
+          score = 0;
+          document.getElementById("score").innerHTML = "0";
+          reset();
+          if(timerInterval != null)clearInterval(timerInterval);
+          timerInterval = setInterval(function(){ min(); }, 999);
+          isGameStarted = true;
+          animationTrigger("mole",1);
+          document.getElementById("action-button").innerHTML = "RESTART";
       }
     });
 }
