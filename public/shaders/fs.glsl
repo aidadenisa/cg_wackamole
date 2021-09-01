@@ -8,10 +8,6 @@ in vec2 uvFS;
 
 uniform sampler2D u_texture;
 
-uniform vec3 mDiffColor; //material diffuse color 
-uniform vec3 lightDirection; // directional light direction vec
-uniform vec3 lightColor; //directional light color 
-
 uniform vec3 eyePos; //camera position
 
 //LL - point light left
@@ -58,7 +54,6 @@ void main() {
 
 
   // Light direction: Spot Light and Point Light are the same
-  //// > Normalized, in world space??? vec3 nLightDirection = normalize(-lightDirection)
   vec3 lightDirL = normalize(lightPositionL - fsPosition);
   vec3 lightDirR = normalize(lightPositionR - fsPosition);
   vec3 spotLightS = normalize(lightPositionS - fsPosition);

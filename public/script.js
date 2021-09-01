@@ -25,16 +25,9 @@ var positionAttributeLocation,
     matrixLocation,
     textLocation,
     normalAttributeLocation ,
-    materialDiffColorHandle,
-    lightDirectionHandle,
-    lightColorHandle,
     normalMatrixPositionHandle,
     textureEnv,
     inverseViewProjMatrixHandle;
-
-var directionalLight,
-    directionalLightColor,
-    materialColor;
 
 // lights
 var
@@ -55,9 +48,6 @@ var
 
 var drawSceneFunct;
 
-var directionalLight,
-    directionalLightColor,
-    materialColor;
 
 var lastUpdateTime=(new Date).getTime();
 
@@ -133,10 +123,6 @@ async function main() {
   gl.clearColor(0, 0, 0, 0);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.enable(gl.DEPTH_TEST);
-
-  var materialColor = [0.5, 0.5, 0.5];
-
-  defineDirectionalLight();
 
   //load models
   var cabinet = await loadObject("assets/cabinet.obj");
@@ -223,11 +209,6 @@ async function main() {
 
       // send normal matrix to shaders
       gl.uniformMatrix4fv(normalMatrixPositionHandle, gl.FALSE, utils.transposeMatrix(normalMatrix));
-
-      //send info about object and light colors to shader
-      gl.uniform3fv(materialDiffColorHandle, materialColor);
-      gl.uniform3fv(lightColorHandle,  directionalLightColor);
-      gl.uniform3fv(lightDirectionHandle,  directionalLight);
 
       //BIND TEXTURE
       gl.activeTexture(gl.TEXTURE0);
@@ -351,7 +332,7 @@ async function main() {
 
     //bind the skybox vertex array
     gl.bindVertexArray(skyboxVao);
-    //todo: ????
+
     gl.depthFunc(gl.LEQUAL);
     //draw triangles
     gl.drawArrays(gl.TRIANGLES, 0, 1*6);
@@ -572,10 +553,6 @@ function getAttributeLocations() {
   uvAttributeLocation = gl.getAttribLocation(program, "a_uv");  //uv indices
   textLocation = gl.getUniformLocation(program, "u_texture");   //texture
 
-  materialDiffColorHandle = gl.getUniformLocation(program, 'mDiffColor');
-  lightDirectionHandle = gl.getUniformLocation(program, 'lightDirection');
-  lightColorHandle = gl.getUniformLocation(program, 'lightColor');
-
   //for the skybox
   skyboxTexHandle = gl.getUniformLocation(skyboxProgram, "u_texture");  //texture
   inverseViewProjMatrixHandle = gl.getUniformLocation(skyboxProgram, "inverseViewProjMatrix"); //normal
@@ -634,18 +611,6 @@ function createVAO(obj) {
   gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(obj.indices), gl.STATIC_DRAW);
 
   return vao;
-}
-
-function defineDirectionalLight() {
-  //define directional light
-  var dirLightAlpha = -utils.degToRad(60);
-  var dirLightBeta  = -utils.degToRad(120);
-
-  directionalLight = [Math.cos(dirLightAlpha) * Math.cos(dirLightBeta),
-              Math.sin(dirLightAlpha),
-              Math.cos(dirLightAlpha) * Math.sin(dirLightBeta)
-              ];
-  directionalLightColor = [1.0, 1.0, 1.0];
 }
 
 async function loadObject(url) {
