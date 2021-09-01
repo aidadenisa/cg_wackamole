@@ -24,6 +24,7 @@ uniform mat4 pMatrix;      // world matrix for World Space transformation of ver
 
 void main() {
   //World Space Transformed
+  //We need to transform in world space the position vertices and the normal vertices
 
   //WS transformed vertex normals
   fsNormal = mat3(nMatrix) * inNormal; 

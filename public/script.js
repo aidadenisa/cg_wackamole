@@ -39,7 +39,7 @@ var
     lightPositionS = [0.0, 20.0, 30.0],
     lTarget = 30,
     lDecay = 1.3,
-    specShine = 2,
+    specShine = 2, //spot light shine-ness
     //direction of light S: (spotlight)
     lightDirS = [1, 7.0, 3.0]
     lConeOut = 30,
@@ -574,7 +574,7 @@ function getAttributeLocations() {
 
   lTargetLocation = gl.getUniformLocation(program,"LTarget"); //point light target
   lDecayLocation = gl.getUniformLocation(program,"LDecay"); //point light decay
-  specShineLocation = gl.getUniformLocation(program,"SpecShine");
+  specShineLocation = gl.getUniformLocation(program,"SpecShine"); //gamma - bigger = more shiny (smaller highlight)
   ambientLightLocation = gl.getUniformLocation(program,"ambientLightColor");
 
   eyePositionLocation = gl.getUniformLocation(program,"eyePos"); //camera position
