@@ -8,10 +8,6 @@ in vec2 uvFS;
 
 uniform sampler2D u_texture;
 
-uniform vec3 mDiffColor; //material diffuse color 
-uniform vec3 lightDirection; // directional light direction vec
-uniform vec3 lightColor; //directional light color 
-
 uniform vec3 eyePos; //camera position
 
 //LL - point light left
@@ -25,6 +21,7 @@ uniform vec3 lightDirS;
 uniform vec3 lightColorL;
 uniform vec3 lightColorR;
 uniform vec3 lightColorS;
+uniform vec3 ambientLightColor;
 
 //Light Positions
 uniform vec3 lightPositionL; //point light position
@@ -44,6 +41,7 @@ void main() {
 
   vec3 materialColor = texture(u_texture, uvFS).xyz;
   vec3 specularColor = vec3(1.0, 1.0, 1.0) * 0.7 + materialColor * (0.3);
+  vec3 ambColor = materialColor;
 
   //World Space 
 
@@ -56,7 +54,6 @@ void main() {
 
 
   // Light direction: Spot Light and Point Light are the same
-  //// > Normalized, in world space??? vec3 nLightDirection = normalize(-lightDirection)
   vec3 lightDirL = normalize(lightPositionL - fsPosition);
   vec3 lightDirR = normalize(lightPositionR - fsPosition);
   vec3 spotLightS = normalize(lightPositionS - fsPosition);
@@ -91,11 +88,16 @@ void main() {
   vec3 specularPhongR =  specularColor * pow(clamp(dot(eyedirVec, rR),0.0,1.0), SpecShine);
   vec3 specularPhongS =  specularColor * pow(clamp(dot(eyedirVec, rS),0.0,1.0), SpecShine);
 
-  //other things: ambient? maybe 
+  //ambient 
+  vec3 ambientAmbient = ambientLightColor * ambColor;    
+
+    
 
   outColor = vec4(clamp(
+ 
                           finalLightColorL * (diffuseLambertL + specularPhongL) +
                           finalLightColorR * (diffuseLambertR + specularPhongR) + 
-                          finalLightColorS * (diffuseLambertS + specularPhongS)     
+                          finalLightColorS * (diffuseLambertS + specularPhongS) + 
+                          ambientAmbient
               ,0.0, 1.0), 1.0); 
 }

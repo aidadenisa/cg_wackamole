@@ -25,41 +25,29 @@ var positionAttributeLocation,
     matrixLocation,
     textLocation,
     normalAttributeLocation ,
-    materialDiffColorHandle,
-    lightDirectionHandle,
-    lightColorHandle,
     normalMatrixPositionHandle,
     textureEnv,
     inverseViewProjMatrixHandle;
-
-var directionalLight,
-    directionalLightColor,
-    materialColor;
 
 // lights
 var
     lightColorL = [0.3, 0.3, 0.3],
     lightColorR = [0.3, 0.3, 0.3],
-    lightColorS = [0.1, 1.0, 1.0],
-    lightPositionL = [-15.0, 20.0, 20.0], //left light
-    lightPositionR = [15.0, 20.0, 20.0],  //right light
-    lightPositionS = [0.0, 1.5, 2.0],
-    lTarget = 60 ,
+    lightColorS = [0.1, 0.1, 0.08],
+    lightPositionL = [-5.0, 10.0, 20.0], //left light
+    lightPositionR = [5.0, 20.0, 20.0],  //right light
+    lightPositionS = [0.0, 20.0, 30.0],
+    lTarget = 30,
     lDecay = 1.3,
-    specShine = 200,
-    lightDirTS = 45, //tetha for computing direction of light S
-    lightDirPS = 0;  //phi for computing direction of light S
+    specShine = 2, //spot light shine-ness
     //direction of light S: (spotlight)
-    lightDirS = [Math.sin(lightDirTS)*Math.sin(lightDirPS), Math.cos(lightDirTS), Math.sin(lightDirTS)*Math.cos(lightDirPS)],
+    lightDirS = [1, 7.0, 3.0]
     lConeOut = 30,
-    lConeIn = 80;
-
+    lConeIn = 60,
+    ambientLightColor = [0.1, 0.1, 0.05];
 
 var drawSceneFunct;
 
-var directionalLight,
-    directionalLightColor,
-    materialColor;
 
 var lastUpdateTime=(new Date).getTime();
 
@@ -136,10 +124,6 @@ async function main() {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.enable(gl.DEPTH_TEST);
 
-  var materialColor = [0.5, 0.5, 0.5];
-
-  defineDirectionalLight();
-
   //load models
   var cabinet = await loadObject("assets/cabinet.obj");
   var mole = await loadObject("assets/mole.obj");
@@ -177,6 +161,7 @@ async function main() {
     gl.uniform3fv(lightColorLLocation, lightColorL);
     gl.uniform3fv(lightColorRLocation, lightColorR);
     gl.uniform3fv(lightColorSLocation, lightColorS);
+    gl.uniform3fv(ambientLightLocation, ambientLightColor);
 
     //Light Positions
     gl.uniform3fv(lightPositionLLocation, lightPositionL);
@@ -186,7 +171,6 @@ async function main() {
     gl.uniform1f(lTargetLocation, lTarget);
     gl.uniform1f(lDecayLocation, lDecay);
     gl.uniform1f(specShineLocation, specShine);
-
 
     gl.uniform3fv(lightDirSLocation,lightDirS);
     gl.uniform3fv(eyePositionLocation, eyePos);
@@ -225,11 +209,6 @@ async function main() {
 
       // send normal matrix to shaders
       gl.uniformMatrix4fv(normalMatrixPositionHandle, gl.FALSE, utils.transposeMatrix(normalMatrix));
-
-      //send info about object and light colors to shader
-      gl.uniform3fv(materialDiffColorHandle, materialColor);
-      gl.uniform3fv(lightColorHandle,  directionalLightColor);
-      gl.uniform3fv(lightDirectionHandle,  directionalLight);
 
       //BIND TEXTURE
       gl.activeTexture(gl.TEXTURE0);
@@ -354,7 +333,7 @@ async function main() {
 
     //bind the skybox vertex array
     gl.bindVertexArray(skyboxVao);
-    //todo: ????
+
     gl.depthFunc(gl.LEQUAL);
     //draw triangles
     gl.drawArrays(gl.TRIANGLES, 0, 1*6);
@@ -574,10 +553,6 @@ function getAttributeLocations() {
   uvAttributeLocation = gl.getAttribLocation(program, "a_uv");  //uv indices
   textLocation = gl.getUniformLocation(program, "u_texture");   //texture
 
-  materialDiffColorHandle = gl.getUniformLocation(program, 'mDiffColor');
-  lightDirectionHandle = gl.getUniformLocation(program, 'lightDirection');
-  lightColorHandle = gl.getUniformLocation(program, 'lightColor');
-
   //for the skybox
   skyboxTexHandle = gl.getUniformLocation(skyboxProgram, "u_texture");  //texture
   inverseViewProjMatrixHandle = gl.getUniformLocation(skyboxProgram, "inverseViewProjMatrix"); //normal
@@ -599,7 +574,8 @@ function getAttributeLocations() {
 
   lTargetLocation = gl.getUniformLocation(program,"LTarget"); //point light target
   lDecayLocation = gl.getUniformLocation(program,"LDecay"); //point light decay
-  specShineLocation = gl.getUniformLocation(program,"SpecShine");
+  specShineLocation = gl.getUniformLocation(program,"SpecShine"); //gamma - bigger = more shiny (smaller highlight)
+  ambientLightLocation = gl.getUniformLocation(program,"ambientLightColor");
 
   eyePositionLocation = gl.getUniformLocation(program,"eyePos"); //camera position
   lConeOutLocation = gl.getUniformLocation(program,"lConeOut");
@@ -635,18 +611,6 @@ function createVAO(obj) {
   gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(obj.indices), gl.STATIC_DRAW);
 
   return vao;
-}
-
-function defineDirectionalLight() {
-  //define directional light
-  var dirLightAlpha = -utils.degToRad(60);
-  var dirLightBeta  = -utils.degToRad(120);
-
-  directionalLight = [Math.cos(dirLightAlpha) * Math.cos(dirLightBeta),
-              Math.sin(dirLightAlpha),
-              Math.cos(dirLightAlpha) * Math.sin(dirLightBeta)
-              ];
-  directionalLightColor = [1.0, 1.0, 1.0];
 }
 
 async function loadObject(url) {
