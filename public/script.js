@@ -40,20 +40,18 @@ var directionalLight,
 var
     lightColorL = [0.3, 0.3, 0.3],
     lightColorR = [0.3, 0.3, 0.3],
-    lightColorS = [0.1, 1.0, 1.0],
-    lightPositionL = [-15.0, 20.0, 20.0], //left light
-    lightPositionR = [15.0, 20.0, 20.0],  //right light
-    lightPositionS = [0.0, 1.5, 2.0],
-    lTarget = 60 ,
+    lightColorS = [0.1, 0.1, 0.08],
+    lightPositionL = [-5.0, 10.0, 20.0], //left light
+    lightPositionR = [5.0, 20.0, 20.0],  //right light
+    lightPositionS = [0.0, 20.0, 30.0],
+    lTarget = 30,
     lDecay = 1.3,
-    specShine = 200,
-    lightDirTS = 45, //tetha for computing direction of light S
-    lightDirPS = 0;  //phi for computing direction of light S
+    specShine = 2,
     //direction of light S: (spotlight)
-    lightDirS = [Math.sin(lightDirTS)*Math.sin(lightDirPS), Math.cos(lightDirTS), Math.sin(lightDirTS)*Math.cos(lightDirPS)],
+    lightDirS = [1, 7.0, 3.0]
     lConeOut = 30,
-    lConeIn = 80;
-
+    lConeIn = 60,
+    ambientLightColor = [0.1, 0.1, 0.05];
 
 var drawSceneFunct;
 
@@ -177,6 +175,7 @@ async function main() {
     gl.uniform3fv(lightColorLLocation, lightColorL);
     gl.uniform3fv(lightColorRLocation, lightColorR);
     gl.uniform3fv(lightColorSLocation, lightColorS);
+    gl.uniform3fv(ambientLightLocation, ambientLightColor);
 
     //Light Positions
     gl.uniform3fv(lightPositionLLocation, lightPositionL);
@@ -186,7 +185,6 @@ async function main() {
     gl.uniform1f(lTargetLocation, lTarget);
     gl.uniform1f(lDecayLocation, lDecay);
     gl.uniform1f(specShineLocation, specShine);
-
 
     gl.uniform3fv(lightDirSLocation,lightDirS);
     gl.uniform3fv(eyePositionLocation, eyePos);
@@ -599,6 +597,7 @@ function getAttributeLocations() {
   lTargetLocation = gl.getUniformLocation(program,"LTarget"); //point light target
   lDecayLocation = gl.getUniformLocation(program,"LDecay"); //point light decay
   specShineLocation = gl.getUniformLocation(program,"SpecShine");
+  ambientLightLocation = gl.getUniformLocation(program,"ambientLightColor");
 
   eyePositionLocation = gl.getUniformLocation(program,"eyePos"); //camera position
   lConeOutLocation = gl.getUniformLocation(program,"lConeOut");
