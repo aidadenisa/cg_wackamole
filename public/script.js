@@ -8,7 +8,7 @@ var skyboxVertPos,
     skyboxVertPosAttr;
 
 var animateIndicator = {}; //indicating active animations of hammers or moles
-var animateFrameRate = 20; //frame rate of screen
+var animateFrameRate = 30; //frame rate of screen
 var moveHammerAnimTimeAsSec = 0.3; //animation duration as sec
 var hammerRotation = -40; //currently hammer rotation
 var hammerStepRotation; //angular change in each frame rate step
