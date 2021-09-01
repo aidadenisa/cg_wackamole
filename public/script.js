@@ -8,7 +8,7 @@ var skyboxVertPos,
     skyboxVertPosAttr;
 
 var animateIndicator = {}; //indicating active animations of hammers or moles
-var animateFrameRate = 30; //frame rate of screen
+var animateFrameRate = 20; //frame rate of screen
 var moveHammerAnimTimeAsSec = 0.3; //animation duration as sec
 var hammerRotation = -40; //currently hammer rotation
 var hammerStepRotation; //angular change in each frame rate step
@@ -112,7 +112,7 @@ Node.prototype.updateWorldMatrix = function(matrix) {
   });
 };
 
-function min(){
+function min(){  //calculating time as minutes and seconds, print it on html
 
   var min = Math.floor(timer/60);
   var sec = timer%60;
@@ -262,24 +262,7 @@ async function main() {
     // lastUpdateTime = currentTime;
   }
 
-  function moveMole(){ // function for movement of moles
-    if(animateStepIndicator["mole"] == 0){ // checking mole movements is started
-      var randomer =Math.floor(Math.random() * 5) + 1;
-      animatingMoles[randomer] = !animatingMoles[randomer];
-      currentAnimatingMole = randomer;
-    }
-    var world=objects[currentAnimatingMole].worldMatrix;
-    if(animatingMoles[currentAnimatingMole]){ // mole is visible
-      world[7]+=((8.5-0)/(animateFrameRate*moveHammerAnimTimeAsSec)); // mole moving to visible side
-    }else{
-      world[7]-=((8.5-0)/(animateFrameRate*moveHammerAnimTimeAsSec));
-    }
-    if(animateStepIndicator["mole"] == animateFrameRate*moveHammerAnimTimeAsSec){ // movement is done
-      animateStepIndicator["mole"] = -1;
-    }
-    objects[currentAnimatingMole].worldMatrix=world;
-    animateStepIndicator["mole"]++;
-  }
+
   function mainAnimate(){ // main animate function calling every frame of screen
     if(animateStatus["hammer"] == true && isGameStarted == true){
       moveHammer();
@@ -298,6 +281,24 @@ async function main() {
         animateIndicator["mole"] = i;
         animateStepIndicator["mole"] = 0;
     }
+  }
+  function moveMole(){ // function for movement of moles
+    if(animateStepIndicator["mole"] == 0){ // checking mole movements is started
+      var randomer =Math.floor(Math.random() * 5) + 1;
+      animatingMoles[randomer] = !animatingMoles[randomer];
+      currentAnimatingMole = randomer;
+    }
+    var world=objects[currentAnimatingMole].worldMatrix;
+    if(animatingMoles[currentAnimatingMole]){ // mole is visible
+      world[7]+=((8.5-0)/(animateFrameRate*moveHammerAnimTimeAsSec)); // mole moving to visible side
+    }else{
+      world[7]-=((8.5-0)/(animateFrameRate*moveHammerAnimTimeAsSec));
+    }
+    if(animateStepIndicator["mole"] == animateFrameRate*moveHammerAnimTimeAsSec){ // movement is done
+      animateStepIndicator["mole"] = -1;
+    }
+    objects[currentAnimatingMole].worldMatrix=world;
+    animateStepIndicator["mole"]++;
   }
   function moveHammer(){ // animation hammer
     var world=objects[6].worldMatrix;
@@ -405,12 +406,11 @@ async function main() {
 
     return objects;
   }
-  function reset(){
+  function reset(){     //reset infos after timeout or restarting
     for(var i=1;i<6;i++){
       objects[i].worldMatrix[7] = -20;
       animatingMoles[i] = false;
     }
-    //objects[6].localMatrix = utils.MakeWorld(0.8, 1.6, 1.3, 0.0,-40.0,-45, 1);
   }
   function keyFunction(e){
 
